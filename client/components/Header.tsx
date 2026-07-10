@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { logoutUser } from "@/lib/auth";
+import { User } from "lucide-react";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    await logoutUser();
+  };
 
   // Hide header completely on lesson pages
   if (location.pathname.includes("/materi/")) {
@@ -73,12 +81,39 @@ export default function Header() {
 
           {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <button className="px-5 py-2 text-purple font-semibold text-sm hover:bg-lavender rounded-xl transition-all duration-300">
-              Masuk
-            </button>
-            <button className="px-5 py-2 bg-orange hover:bg-orange-dark text-white font-semibold text-sm rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-orange-glow">
-              Daftar Gratis
-            </button>
+            {user ? (
+              <>
+                <div className="flex items-center gap-2 px-4 py-2 bg-lavender rounded-xl">
+                  <User size={18} className="text-purple" />
+                  <span className="font-medium text-sm text-purple">
+                    {user.displayName || "User"}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold text-sm rounded-xl transition-all"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="px-5 py-2 text-purple font-semibold text-sm hover:bg-lavender rounded-xl transition-all duration-300"
+                >
+                  Masuk
+                </Link>
+
+                <Link
+                  to="/register"
+                  className="px-5 py-2 bg-orange hover:bg-orange-dark text-white font-semibold text-sm rounded-xl transition-all duration-300 shadow-orange-glow"
+                >
+                  Daftar Gratis
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile toggle */}

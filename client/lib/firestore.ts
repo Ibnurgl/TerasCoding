@@ -6,6 +6,9 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { addDoc, collection } from "firebase/firestore";
+
+
 
 /**
  * Menyimpan data user pertama kali setelah register
@@ -15,11 +18,20 @@ export const saveUser = async (
   name: string,
   email: string
 ) => {
-  await setDoc(doc(db, "users", uid), {
-    name,
-    email,
-    createdAt: serverTimestamp(),
-  });
+  try {
+    console.log("Mulai setDoc");
+
+    await setDoc(doc(db, "users", uid), {
+      name,
+      email,
+      createdAt: serverTimestamp(),
+    });
+
+    console.log("setDoc selesai");
+  } catch (error) {
+    console.error("saveUser error:", error);
+    throw error;
+  }
 };
 
 /**
