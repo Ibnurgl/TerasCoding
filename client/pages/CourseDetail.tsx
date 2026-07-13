@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { courses } from "@/lib/courseData";
+import { useAuth } from "@/contexts/AuthContext";
+import { getProgress } from "@/lib/firestore";
+import { getLessonId, flattenContentLessons } from "@/lib/progress";
 import Footer from "@/components/Footer";
 
 // ─── Static data (not course-specific) ───────────────────────────────────────
@@ -109,6 +112,75 @@ export default function CourseDetail() {
   }
 
   const [openSection, setOpenSection] = useState<number | null>(0);
+
+  const { user } = useAuth();
+  const [completedMap, setCompletedMap] = useState<Record<string, boolean>>({});
+  const [progressLoaded, setProgressLoaded] = useState(false);
+
+  const contentLessons = flattenContentLessons(course);
+
+  // ── Load learning progress from Firestore ──────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProgress() {
+      if (!user) {
+        if (!cancelled) {
+          setCompletedMap({});
+          setProgressLoaded(true);
+        }
+        return;
+      }
+
+      try {
+        const entries = (await Promise.race([
+          Promise.all(
+            contentLessons.map(async ({ sectionIdx, lessonIdx }) => {
+              const lessonId = getLessonId(course.id, sectionIdx, lessonIdx);
+              const data = await getProgress(user.uid, lessonId);
+              return [lessonId, !!data?.completed] as const;
+            }),
+          ),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("getProgress timeout")), 8000),
+          ),
+        ])) as [string, boolean][];
+        if (!cancelled) {
+          setCompletedMap(Object.fromEntries(entries));
+          setProgressLoaded(true);
+        }
+      } catch (err) {
+        console.error("Gagal memuat progress belajar:", err);
+        if (!cancelled) setProgressLoaded(true);
+      }
+    }
+
+    loadProgress();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, course.id]);
+
+  /** A content lesson is unlocked if it's the first one, or the lesson right before it is completed. */
+  function isPreviousCompleted(contentIdx: number) {
+    if (contentIdx <= 0) return true;
+    const prev = contentLessons[contentIdx - 1];
+    const prevId = getLessonId(course.id, prev.sectionIdx, prev.lessonIdx);
+    return !!completedMap[prevId];
+  }
+
+  // Auto-expand the module containing the next lesson the user hasn't finished yet
+  useEffect(() => {
+    if (!progressLoaded || contentLessons.length === 0) return;
+    const nextIdx = contentLessons.findIndex(({ sectionIdx, lessonIdx }) => {
+      const id = getLessonId(course.id, sectionIdx, lessonIdx);
+      return !completedMap[id];
+    });
+    const target = nextIdx !== -1 ? contentLessons[nextIdx] : contentLessons[contentLessons.length - 1];
+    setOpenSection(target.sectionIdx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressLoaded, completedMap]);
 
   const relatedCourses = courses
     .filter((c) => c.language === course.language && c.id !== course.id)
@@ -496,33 +568,56 @@ export default function CourseDetail() {
                                 <div className="pt-3 space-y-1.5">
                                   {section.lessons.map((lesson, lIndex) => {
                                     const hasContent = !!lesson.content;
+                                    const lessonId = hasContent
+                                      ? getLessonId(course.id, index, lIndex)
+                                      : null;
+                                    const isCompleted = hasContent && !!completedMap[lessonId!];
+                                    const contentIdx = hasContent
+                                      ? contentLessons.findIndex(
+                                          (cl) => cl.sectionIdx === index && cl.lessonIdx === lIndex,
+                                        )
+                                      : -1;
+                                    const isUnlocked = hasContent && isPreviousCompleted(contentIdx);
+                                    const isClickable = hasContent && isUnlocked;
+
                                     const inner = (
-                                      <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-3 flex-1 min-w-0">
                                         <div className={`w-7 h-7 rounded-lg bg-white border flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
-                                          hasContent
+                                          isCompleted
+                                            ? "border-green-200 bg-green-50"
+                                            : isClickable
                                             ? "border-purple/15 group-hover/lesson:border-orange group-hover/lesson:bg-orange/5"
                                             : "border-gray-200"
                                         }`}>
-                                          <Play
-                                            size={11}
-                                            className={`transition-colors duration-200 translate-x-px ${
-                                              hasContent
-                                                ? "text-purple/40 group-hover/lesson:text-orange"
-                                                : "text-gray-300"
-                                            }`}
-                                          />
+                                          {isCompleted ? (
+                                            <Check size={13} className="text-green-500" />
+                                          ) : isClickable ? (
+                                            <Play
+                                              size={11}
+                                              className="text-purple/40 group-hover/lesson:text-orange transition-colors duration-200 translate-x-px"
+                                            />
+                                          ) : (
+                                            <Lock size={11} className="text-gray-300" />
+                                          )}
                                         </div>
-                                        <span className={`text-sm font-medium transition-colors duration-200 ${
-                                          hasContent
+                                        <span className={`text-sm font-medium transition-colors duration-200 truncate ${
+                                          isCompleted
+                                            ? "text-gray-700"
+                                            : isClickable
                                             ? "text-gray-700 group-hover/lesson:text-purple"
                                             : "text-gray-400"
                                         }`}>
                                           {lesson.name}
                                         </span>
+                                        {isCompleted && (
+                                          <span className="ml-auto flex-shrink-0 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                                            Selesai
+                                          </span>
+                                        )}
                                       </div>
                                     );
 
-                                    return hasContent ? (
+                                    return isClickable ? (
                                       <Link
                                         key={lIndex}
                                         to={`/kursus/${course.id}/materi/${index}/${lIndex}`}
@@ -533,7 +628,7 @@ export default function CourseDetail() {
                                     ) : (
                                       <div
                                         key={lIndex}
-                                        className="flex items-center justify-between px-3 py-2.5 rounded-xl opacity-60 cursor-default group/lesson"
+                                        className="flex items-center justify-between px-3 py-2.5 rounded-xl opacity-60 cursor-not-allowed group/lesson"
                                       >
                                         {inner}
                                       </div>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,9 +17,14 @@ import {
   Menu,
   X,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { courses } from "@/lib/courseData";
 import type { LessonContent } from "@/lib/courseData";
+import { useAuth } from "@/contexts/AuthContext";
+import { saveProgress, getProgress } from "@/lib/firestore";
+import { getLessonId, flattenContentLessons } from "@/lib/progress";
 import InteractivePlayground, { type PlaygroundRef } from "@/components/InteractivePlayground";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -47,6 +52,9 @@ export default function LessonPage() {
   }>();
 
   const playgroundRef = useRef<PlaygroundRef>(null);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
   const sectionIdx = Number(sIdxParam);
   const lessonIdx = Number(lIdxParam);
 
@@ -70,6 +78,95 @@ export default function LessonPage() {
   const progressPercent = totalLessons > 0 ? Math.round(((currentFlatIdx + 1) / totalLessons) * 100) : 0;
   const prevLesson = currentFlatIdx > 0 ? allLessons[currentFlatIdx - 1] : null;
   const nextLesson = currentFlatIdx < totalLessons - 1 ? allLessons[currentFlatIdx + 1] : null;
+
+  // ── Unlock progress (mirrors the same logic used in CourseDetail) ──────────
+  const [completedMap, setCompletedMap] = useState<Record<string, boolean>>({});
+  const [progressLoaded, setProgressLoaded] = useState(false);
+  const contentLessons = useMemo(
+    () => (course ? flattenContentLessons(course) : []),
+    [course],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProgress() {
+      if (!user || !course) {
+        if (!cancelled) {
+          setCompletedMap({});
+          setProgressLoaded(true);
+        }
+        return;
+      }
+
+      try {
+        const entries = (await Promise.race([
+          Promise.all(
+            contentLessons.map(async ({ sectionIdx: sIdx, lessonIdx: lIdx }) => {
+              const lessonId = getLessonId(course.id, sIdx, lIdx);
+              const data = await getProgress(user.uid, lessonId);
+              return [lessonId, !!data?.completed] as const;
+            }),
+          ),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("getProgress timeout")), 8000),
+          ),
+        ])) as [string, boolean][];
+        if (!cancelled) {
+          setCompletedMap(Object.fromEntries(entries));
+          setProgressLoaded(true);
+        }
+      } catch (err) {
+        console.error("Gagal memuat progress belajar:", err);
+        if (!cancelled) setProgressLoaded(true);
+      }
+    }
+
+    loadProgress();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, course?.id]);
+
+  /** A content lesson is unlocked if it's the first one, or the lesson right before it is completed. */
+  function isPreviousCompleted(contentIdx: number) {
+    if (contentIdx <= 0) return true;
+    const prev = contentLessons[contentIdx - 1];
+    if (!course) return true;
+    const prevId = getLessonId(course.id, prev.sectionIdx, prev.lessonIdx);
+    return !!completedMap[prevId];
+  }
+
+  // Kalau materi yang sedang dibuka ternyata masih terkunci (belum menyelesaikan
+  // materi sebelumnya) — misal diakses langsung lewat drawer/URL — tendang balik
+  // ke materi terakhir yang seharusnya diselesaikan dulu, supaya tidak bisa
+  // "diselesaikan" walau masih terkunci.
+  useEffect(() => {
+    if (!course || !progressLoaded) return;
+    const currentContentIdx = contentLessons.findIndex(
+      (cl) => cl.sectionIdx === sectionIdx && cl.lessonIdx === lessonIdx,
+    );
+    if (currentContentIdx > 0 && !isPreviousCompleted(currentContentIdx)) {
+      // Cari materi pertama yang belum selesai — itu yang seharusnya dikerjakan duluan.
+      const target = contentLessons.find(({ sectionIdx: sIdx, lessonIdx: lIdx }) => {
+        const id = getLessonId(course.id, sIdx, lIdx);
+        return !completedMap[id];
+      });
+
+      toast.error("Selesaikan materi sebelumnya dulu sebelum lanjut ke sini.");
+
+      if (target) {
+        navigate(`/kursus/${course.id}/materi/${target.sectionIdx}/${target.lessonIdx}`, {
+          replace: true,
+        });
+      } else {
+        // Fallback (harusnya tidak pernah kejadian kalau currentContentIdx terkunci)
+        navigate(`/kursus/${course.id}`, { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course, progressLoaded, completedMap, sectionIdx, lessonIdx]);
 
   // Drawer State (for accessing lesson lists easily in single-column layout)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -115,6 +212,44 @@ export default function LessonPage() {
       </div>
     );
   }
+
+  // ─── Next lesson handler (auto-marks current lesson as completed) ──────────
+  const handleNext = async () => {
+    if (!nextLesson || isSavingProgress) return;
+
+    if (user && courseId) {
+      setIsSavingProgress(true);
+      const lessonId = getLessonId(courseId, sectionIdx, lessonIdx);
+      try {
+        // Progress ke Firestore dibuat "best effort" dengan timeout, supaya
+        // jika koneksi/permission Firestore bermasalah, tombol tidak
+        // tersangkut loading selamanya — user tetap bisa lanjut ke materi berikutnya.
+        await Promise.race([
+          saveProgress(user.uid, lessonId, true),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("saveProgress timeout")), 8000),
+          ),
+        ]);
+      } catch (err) {
+        console.error("Gagal menyimpan progress belajar:", err);
+        toast.error(
+          "Gagal menyimpan progress ke server. Progresmu mungkin belum tersimpan, coba lagi nanti.",
+        );
+      } finally {
+        setIsSavingProgress(false);
+      }
+
+      // Update state lokal secara optimistic. Ini WAJIB, karena navigasi antar
+      // materi lewat tombol "Selanjutnya" TIDAK me-remount LessonPage (cuma
+      // parameter URL-nya yang berubah) — jadi kalau completedMap tidak
+      // di-update di sini, pengecekan unlock di materi berikutnya masih
+      // pakai data lama (materi yang barusan diselesaikan dianggap belum
+      // selesai) dan bikin user ke-redirect balik walau baru saja klik "Selanjutnya".
+      setCompletedMap((prev) => ({ ...prev, [lessonId]: true }));
+    }
+
+    navigate(`/kursus/${courseId}/materi/${nextLesson.sectionIdx}/${nextLesson.lessonIdx}`);
+  };
 
   // ─── Copy handler ───────────────────────────────────────────────────────────
   const handleCopyCode = async (code: string) => {
@@ -458,13 +593,24 @@ export default function LessonPage() {
               </span>
 
               {nextLesson ? (
-                <Link
-                  to={`/kursus/${courseId}/materi/${nextLesson.sectionIdx}/${nextLesson.lessonIdx}`}
-                  className="inline-flex items-center gap-1.5 text-white bg-orange hover:bg-orange-dark text-sm font-bold transition-all px-4 py-2.5 rounded-lg shadow-orange-glow hover:scale-105 active:scale-95"
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={isSavingProgress}
+                  className="inline-flex items-center gap-1.5 text-white bg-orange hover:bg-orange-dark text-sm font-bold transition-all px-4 py-2.5 rounded-lg shadow-orange-glow hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  Selanjutnya
-                  <ArrowRight size={15} />
-                </Link>
+                  {isSavingProgress ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      Selanjutnya
+                      <ArrowRight size={15} />
+                    </>
+                  )}
+                </button>
               ) : (
                 <div className="w-24" />
               )}
@@ -524,7 +670,16 @@ export default function LessonPage() {
                 {section.lessons.map((l, idx) => {
                   const isActive = idx === lessonIdx;
                   const hasContent = !!l.content;
-                  return hasContent ? (
+                  const contentIdx = hasContent
+                    ? contentLessons.findIndex(
+                        (cl) => cl.sectionIdx === sectionIdx && cl.lessonIdx === idx,
+                      )
+                    : -1;
+                  const isUnlocked = hasContent && isPreviousCompleted(contentIdx);
+                  const lessonId = hasContent ? getLessonId(course.id, sectionIdx, idx) : null;
+                  const isCompleted = hasContent && !!completedMap[lessonId!];
+
+                  return isUnlocked ? (
                     <Link
                       key={idx}
                       to={`/kursus/${courseId}/materi/${sectionIdx}/${idx}`}
@@ -538,6 +693,8 @@ export default function LessonPage() {
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold ${
                         isActive
                           ? "bg-purple text-white"
+                          : isCompleted
+                          ? "bg-green-50 text-green-600"
                           : "bg-gray-100 text-gray-500"
                       }`}>
                         {idx + 1}
@@ -547,6 +704,11 @@ export default function LessonPage() {
                       }`}>
                         {l.name}
                       </span>
+                      {isCompleted && !isActive && (
+                        <span className="ml-auto text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                          Selesai
+                        </span>
+                      )}
                     </Link>
                   ) : (
                     <div
