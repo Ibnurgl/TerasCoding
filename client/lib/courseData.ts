@@ -3010,6 +3010,12 @@ export const courses: Course[] = [
                   js: `/* app.js */\n\nconsole.log("--- MULAI SORTIR ANTREAN ---");\n\nfor (let nomorAntrean = 1; nomorAntrean <= 7; nomorAntrean++) {\n  if (nomorAntrean % 2 === 0) {\n    console.log(\`Nomor \${nomorAntrean} adalah GENAP - Silakan ke Loket A.\`);\n  } else {\n    console.log(\`Nomor \${nomorAntrean} adalah GANJIL - Silakan ke Loket B.\`);\n  }\n}\n\nconsole.log("--- SORTIR SELESAI ---");`
                 },
 
+                starterCode: {
+                  html: ``,
+                  css: ``,
+                  js: ``,
+                },
+
                 challenge: {
                   title: "Bikin Mesin Hitung Mundur Roket",
                   description: "Mari latih logika perulangan dengan membuat sistem hitung mundur (countdown) peluncuran roket.",

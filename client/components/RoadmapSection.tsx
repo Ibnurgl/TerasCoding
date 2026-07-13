@@ -8,9 +8,14 @@
  * ──────────────────────────────────────────────────────────────────────────────
  */
 
-import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, Clock, Lock, Star, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowRight, BookOpen, Clock, Lock, Star, X, Zap } from "lucide-react";
+import { toast } from "sonner";
 import { courses, Course } from "@/lib/courseData";
+import { useAuth } from "@/contexts/AuthContext";
+import { getCompletedLessonIds } from "@/lib/firestore";
+import { getLessonId, flattenContentLessons } from "@/lib/progress";
 
 // ─── Language → visual theme map ─────────────────────────────────────────────
 // These are UI presentation constants (emoji, colour tokens) keyed on the
@@ -101,12 +106,277 @@ function getTheme(language: string): LangTheme {
 // ─── Root section ─────────────────────────────────────────────────────────────
 
 export default function RoadmapSection() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
   // Single source of truth: read + sort courses from courseData
   const roadmap = [...courses].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   // Total XP is always computed from courseData — never hardcoded
   const totalXP = roadmap.reduce((sum, c) => sum + c.xp, 0);
   const totalLessons = roadmap.reduce((sum, c) => sum + (c.lessons ?? 0), 0);
+
+  // ── Level-unlock celebration (dipicu dari LessonPage saat Mini Project selesai) ──
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // revealedIds: set of courseId yang sudah completed (unlocked untuk dibuka)
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const [celebration, setCelebration] = useState<{ completed: Course; unlocked: Course } | null>(null);
+  const [animPhase, setAnimPhase] = useState<"idle" | "scrolling" | "unlocking" | "done">("idle");
+
+  // ── Load progress dari Firestore saat mount / user berubah ───────────────────
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    getCompletedLessonIds(user.uid)
+      .then((completedIds) => {
+        if (cancelled) return;
+        // Tentukan kursus mana yang semua content lesson-nya sudah selesai
+        const completedCourseIds = new Set<string>();
+        roadmap.forEach((course) => {
+          if (!course.curriculum) return;
+          const contentLessons = flattenContentLessons(course);
+          if (contentLessons.length === 0) return;
+          const allDone = contentLessons.every(({ sectionIdx, lessonIdx }) =>
+            completedIds.has(getLessonId(course.id, sectionIdx, lessonIdx))
+          );
+          if (allDone) completedCourseIds.add(course.id);
+        });
+        setRevealedIds((prev) => {
+          // Gabungkan dengan revealedIds yang sudah ada (dari animasi sesi ini)
+          const merged = new Set([...prev, ...completedCourseIds]);
+          return merged;
+        });
+      })
+      .catch((err) => {
+        console.error("Gagal memuat progress dari Firestore:", err);
+      });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // 1) Baca state navigasi dari LessonPage sekali saat mount
+  useEffect(() => {
+    const state = location.state as { celebrateCourseId?: string } | null;
+    if (!state?.celebrateCourseId) return;
+
+    const completedIdx = roadmap.findIndex((c) => c.id === state.celebrateCourseId);
+    if (completedIdx === -1) return;
+
+    const completed = roadmap[completedIdx];
+    const unlocked = completedIdx < roadmap.length - 1 ? roadmap[completedIdx + 1] : null;
+
+    // Bersihkan location.state supaya animasi tidak terulang kalau di-refresh/back.
+    navigate(location.pathname, { replace: true, state: null });
+
+    if (!unlocked) {
+      // Sudah level terakhir di roadmap — tidak ada level baru untuk dibuka.
+      toast.custom(
+        (id) => (
+          <div
+            onClick={() => toast.dismiss(id)}
+            style={{
+              position: "relative",
+              width: 340,
+              background: "linear-gradient(160deg,#020d1a 0%,#041525 60%,#030f1e 100%)",
+              border: "1px solid rgba(0,220,255,0.55)",
+              boxShadow:
+                "0 0 0 1px rgba(0,180,255,0.08)," +
+                "0 0 24px rgba(0,200,255,0.28)," +
+                "0 0 60px rgba(0,150,255,0.14)," +
+                "inset 0 0 40px rgba(0,100,200,0.06)",
+              cursor: "pointer",
+              overflow: "hidden",
+              fontFamily: "'Orbitron','Share Tech Mono',monospace",
+            }}
+          >
+            {/* scan-line overlay */}
+            <div style={{
+              position:"absolute",inset:0,
+              backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,200,255,0.025) 3px,rgba(0,200,255,0.025) 4px)",
+              pointerEvents:"none",zIndex:0,
+            }} />
+            {/* corner brackets */}
+            {(["top-0 left-0","top-0 right-0","bottom-0 left-0","bottom-0 right-0"] as const).map((pos,i) => (
+              <div key={i} className={`absolute ${pos} w-4 h-4`} style={{ zIndex:2,
+                borderTop: i<2 ? "2px solid rgba(0,220,255,0.8)" : undefined,
+                borderBottom: i>=2 ? "2px solid rgba(0,220,255,0.8)" : undefined,
+                borderLeft: i%2===0 ? "2px solid rgba(0,220,255,0.8)" : undefined,
+                borderRight: i%2===1 ? "2px solid rgba(0,220,255,0.8)" : undefined,
+              }} />
+            ))}
+            {/* header bar */}
+            <div style={{
+              position:"relative",zIndex:1,
+              display:"flex",alignItems:"center",gap:10,
+              padding:"10px 14px",
+              background:"linear-gradient(90deg,rgba(0,180,255,0.18),rgba(0,120,200,0.08))",
+              borderBottom:"1px solid rgba(0,200,255,0.35)",
+            }}>
+              <div style={{
+                width:28,height:28,border:"2px solid rgba(0,220,255,0.9)",
+                borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",
+                color:"rgba(0,220,255,1)",fontSize:14,fontWeight:"bold",flexShrink:0,
+                boxShadow:"0 0 10px rgba(0,200,255,0.6)",
+              }}>!</div>
+              <span style={{
+                letterSpacing:"0.2em",fontSize:12,fontWeight:700,
+                color:"rgba(0,220,255,1)",textShadow:"0 0 12px rgba(0,200,255,0.9)",
+              }}>MISI SELESAI</span>
+              <div style={{marginLeft:"auto",color:"rgba(0,200,255,0.5)",fontSize:10,letterSpacing:"0.1em"}}>[KLIK TUTUP]</div>
+            </div>
+            {/* body */}
+            <div style={{position:"relative",zIndex:1,padding:"16px 18px"}}>
+              <p style={{ color:"rgba(160,230,255,0.92)",fontSize:13,lineHeight:1.7,marginBottom:0,textShadow:"0 0 8px rgba(0,200,255,0.4)" }}>
+                Kamu telah menyelesaikan semua level! 🎉 Raih{" "}
+                <span style={{color:"rgba(0,220,255,1)",fontWeight:700}}>+{completed.xp} XP</span>
+                {" "}dan jadi Frontend Developer sejati!
+              </p>
+            </div>
+          </div>
+        ),
+        { duration: 7000 },
+      );
+      return;
+    }
+
+    setCelebration({ completed, unlocked });
+    setAnimPhase("scrolling");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 2) Scroll otomatis ke card level yang baru terbuka
+  useEffect(() => {
+    if (animPhase !== "scrolling" || !celebration) return;
+    const el = cardRefs.current[celebration.unlocked.id];
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setAnimPhase("unlocking"), 700);
+    return () => clearTimeout(t);
+  }, [animPhase, celebration]);
+
+  // 3) Mainkan animasi gembok terbuka (~1.8 detik), lalu tampilkan popup selamat
+  useEffect(() => {
+    if (animPhase !== "unlocking" || !celebration) return;
+    setRevealedIds((prev) => new Set(prev).add(celebration.completed.id));
+
+    const t = setTimeout(() => {
+      setAnimPhase("done");
+
+      const { completed, unlocked } = celebration;
+      toast.custom(
+        (id) => (
+          <div
+            style={{
+              position: "relative",
+              width: 340,
+              background: "linear-gradient(160deg,#020d1a 0%,#041525 60%,#030f1e 100%)",
+              border: "1px solid rgba(0,220,255,0.55)",
+              boxShadow:
+                "0 0 0 1px rgba(0,180,255,0.08)," +
+                "0 0 24px rgba(0,200,255,0.28)," +
+                "0 0 60px rgba(0,150,255,0.14)," +
+                "inset 0 0 40px rgba(0,100,200,0.06)",
+              overflow: "hidden",
+              fontFamily: "'Orbitron','Share Tech Mono',monospace",
+            }}
+          >
+            {/* Scan-line texture overlay */}
+            <div style={{
+              position:"absolute",inset:0,
+              backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,200,255,0.025) 3px,rgba(0,200,255,0.025) 4px)",
+              pointerEvents:"none",zIndex:0,
+            }} />
+
+            {/* Corner brackets */}
+            <div style={{ position:"absolute",top:0,left:0,width:16,height:16,borderTop:"2px solid rgba(0,220,255,0.9)",borderLeft:"2px solid rgba(0,220,255,0.9)",zIndex:2 }} />
+            <div style={{ position:"absolute",top:0,right:0,width:16,height:16,borderTop:"2px solid rgba(0,220,255,0.9)",borderRight:"2px solid rgba(0,220,255,0.9)",zIndex:2 }} />
+            <div style={{ position:"absolute",bottom:0,left:0,width:16,height:16,borderBottom:"2px solid rgba(0,220,255,0.9)",borderLeft:"2px solid rgba(0,220,255,0.9)",zIndex:2 }} />
+            <div style={{ position:"absolute",bottom:0,right:0,width:16,height:16,borderBottom:"2px solid rgba(0,220,255,0.9)",borderRight:"2px solid rgba(0,220,255,0.9)",zIndex:2 }} />
+
+            {/* ── Header bar ── */}
+            <div style={{
+              position:"relative",zIndex:1,
+              display:"flex",alignItems:"center",gap:10,
+              padding:"10px 14px",
+              background:"linear-gradient(90deg,rgba(0,180,255,0.18),rgba(0,120,200,0.08))",
+              borderBottom:"1px solid rgba(0,200,255,0.35)",
+            }}>
+              {/* Icon box */}
+              <div style={{
+                width:28,height:28,border:"2px solid rgba(0,220,255,0.9)",
+                borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",
+                color:"rgba(0,220,255,1)",fontSize:14,fontWeight:"bold",flexShrink:0,
+                boxShadow:"0 0 10px rgba(0,200,255,0.6)",
+              }}>!</div>
+              <span style={{
+                letterSpacing:"0.2em",fontSize:12,fontWeight:700,
+                color:"rgba(0,220,255,1)",
+                textShadow:"0 0 12px rgba(0,200,255,0.9)",
+              }}>LEVEL UP</span>
+              {/* Close */}
+              <button
+                onClick={() => toast.dismiss(id)}
+                aria-label="Tutup"
+                style={{
+                  marginLeft:"auto",background:"none",border:"none",
+                  color:"rgba(0,200,255,0.45)",cursor:"pointer",
+                  fontSize:16,lineHeight:1,padding:0,
+                }}
+              >✕</button>
+            </div>
+
+            {/* ── Body ── */}
+            <div style={{position:"relative",zIndex:1,padding:"16px 18px 14px"}}>
+              <p style={{ color:"rgba(160,230,255,0.92)",fontSize:13,lineHeight:1.7,marginBottom:12,textShadow:"0 0 8px rgba(0,200,255,0.4)" }}>
+                Kamu telah menyelesaikan{" "}
+                <span style={{color:"rgba(0,220,255,1)",fontWeight:700}}>{completed.title}</span>.
+                {" "}Level <span style={{color:"rgba(0,220,255,1)",fontWeight:700}}>{unlocked.language}</span>
+                {" "}berhasil dibuka! 🎉
+              </p>
+
+              {/* XP badge */}
+              <div style={{
+                display:"inline-flex",alignItems:"center",gap:6,
+                padding:"4px 12px",marginBottom:14,
+                border:"1px solid rgba(0,200,255,0.4)",
+                background:"rgba(0,180,255,0.1)",
+                color:"rgba(0,220,255,0.95)",
+                fontSize:12,fontWeight:700,letterSpacing:"0.08em",
+                textShadow:"0 0 8px rgba(0,200,255,0.7)",
+              }}>🏆 +{completed.xp} XP DIPEROLEH</div>
+
+              {/* CTA button */}
+              <Link
+                to={`/kursus/${unlocked.id}`}
+                onClick={() => toast.dismiss(id)}
+                style={{
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                  width:"100%",padding:"10px 0",
+                  background:"linear-gradient(90deg,rgba(0,160,255,0.25),rgba(0,100,200,0.18))",
+                  border:"1px solid rgba(0,200,255,0.55)",
+                  color:"rgba(0,220,255,1)",
+                  fontSize:12,fontWeight:700,letterSpacing:"0.15em",
+                  textDecoration:"none",
+                  textShadow:"0 0 10px rgba(0,200,255,0.9)",
+                  boxShadow:"0 0 14px rgba(0,180,255,0.3),inset 0 0 20px rgba(0,140,255,0.1)",
+                  transition:"all 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow="0 0 22px rgba(0,200,255,0.55),inset 0 0 30px rgba(0,160,255,0.18)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow="0 0 14px rgba(0,180,255,0.3),inset 0 0 20px rgba(0,140,255,0.1)"; }}
+              >
+                ▶ MULAI {unlocked.language.toUpperCase()} LEVEL {unlocked.order}
+              </Link>
+            </div>
+          </div>
+        ),
+        { duration: 8000 },
+      );
+    }, 1800);
+
+    return () => clearTimeout(t);
+  }, [animPhase, celebration]);
 
   return (
     <>
@@ -144,6 +414,32 @@ export default function RoadmapSection() {
           animation:rm-shimmer 4.5s linear infinite;
         }
         .rm-badge-glow { animation:rm-badge-glow 2.6s ease-in-out infinite; }
+
+        /* ── Level unlock celebration ── */
+        @keyframes rm-unlock-pop {
+          0%   { transform:scale(0.85); }
+          40%  { transform:scale(1.18); }
+          65%  { transform:scale(0.96); }
+          100% { transform:scale(1); }
+        }
+        @keyframes rm-unlock-glow {
+          0%   { box-shadow:0 0 0px rgba(255,138,31,0); }
+          30%  { box-shadow:0 0 55px rgba(255,138,31,0.75); }
+          100% { box-shadow:0 0 22px rgba(255,138,31,0.35); }
+        }
+        @keyframes rm-card-highlight {
+          0%   { box-shadow:0 0 0px rgba(255,138,31,0);   transform:scale(1); }
+          30%  { box-shadow:0 0 60px rgba(255,138,31,0.45); transform:scale(1.015); }
+          100% { box-shadow:0 0 0px rgba(255,138,31,0);   transform:scale(1); }
+        }
+        @keyframes rm-connector-flash {
+          0%,100% { opacity:1; }
+          50%      { opacity:0.35; }
+        }
+        .rm-unlock-pop      { animation:rm-unlock-pop 0.7s cubic-bezier(.34,1.56,.64,1); }
+        .rm-unlock-glow     { animation:rm-unlock-glow 1.8s ease-out; }
+        .rm-card-highlight  { animation:rm-card-highlight 1.8s ease-out; }
+        .rm-connector-flash { animation:rm-connector-flash 0.5s ease-in-out 3; }
       `}</style>
 
       {/* ── Section shell ── */}
@@ -175,12 +471,19 @@ export default function RoadmapSection() {
             {/* Level rows */}
             {roadmap.map((course, index) => {
               const isEven = index % 2 === 0;
-              const isLocked = index > 0;
+              // Level 1 selalu terbuka. Level berikutnya terbuka jika kursus SEBELUMNYA
+              // (bukan kursus ini sendiri) sudah selesai dan ada di revealedIds.
+              const prevCourse = index > 0 ? roadmap[index - 1] : null;
+              const isLocked = index > 0 && !(prevCourse && revealedIds.has(prevCourse.id));
+              const isCelebratingThis =
+                animPhase === "unlocking" && celebration?.unlocked.id === course.id;
+              const isConnectorCelebrating =
+                animPhase === "unlocking" && celebration?.completed.id === course.id;
               const isLast = index === roadmap.length - 1;
               const theme = getTheme(course.language);
 
               return (
-                <div key={course.id}>
+                <div key={course.id} ref={(el) => (cardRefs.current[course.id] = el)}>
 
                   {/* ── Desktop row ── */}
                   <div className="hidden lg:grid lg:grid-cols-[1fr_92px_1fr] items-center">
@@ -188,20 +491,20 @@ export default function RoadmapSection() {
                     {/* Left col */}
                     <div className="pr-8 py-4">
                       {isEven
-                        ? <LevelCard course={course} theme={theme} isLocked={isLocked} />
+                        ? <LevelCard course={course} theme={theme} isLocked={isLocked} isCelebrating={isCelebratingThis} />
                         : <GhostSide course={course} theme={theme} isLocked={isLocked} side="right" />
                       }
                     </div>
 
                     {/* Center: node */}
                     <div className="flex justify-center relative z-10">
-                      <NodeCircle course={course} theme={theme} isLocked={isLocked} />
+                      <NodeCircle course={course} theme={theme} isLocked={isLocked} isCelebrating={isCelebratingThis} />
                     </div>
 
                     {/* Right col */}
                     <div className="pl-8 py-4">
                       {!isEven
-                        ? <LevelCard course={course} theme={theme} isLocked={isLocked} />
+                        ? <LevelCard course={course} theme={theme} isLocked={isLocked} isCelebrating={isCelebratingThis} />
                         : <GhostSide course={course} theme={theme} isLocked={isLocked} side="left" />
                       }
                     </div>
@@ -210,16 +513,16 @@ export default function RoadmapSection() {
                   {/* ── Mobile row ── */}
                   <div className="flex items-start gap-5 lg:hidden py-2">
                     <div className="flex-shrink-0 mt-3">
-                      <NodeCircle course={course} theme={theme} isLocked={isLocked} size={52} />
+                      <NodeCircle course={course} theme={theme} isLocked={isLocked} isCelebrating={isCelebratingThis} size={52} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <LevelCard course={course} theme={theme} isLocked={isLocked} />
+                      <LevelCard course={course} theme={theme} isLocked={isLocked} isCelebrating={isCelebratingThis} />
                     </div>
                   </div>
 
                   {/* ── Connector pill between levels ── */}
                   {!isLast && (
-                    <ConnectorPill course={course} isLocked={isLocked} />
+                    <ConnectorPill course={course} isLocked={isLocked} isCelebrating={isConnectorCelebrating} />
                   )}
                 </div>
               );
@@ -398,17 +701,20 @@ function MobilePath() {
 interface ConnectorPillProps {
   course: Course;
   isLocked: boolean;
+  isCelebrating?: boolean;
 }
 
-function ConnectorPill({ course, isLocked }: ConnectorPillProps) {
+function ConnectorPill({ course, isLocked, isCelebrating }: ConnectorPillProps) {
   const nextLevel = (course.order ?? 1) + 1;
 
   return (
     <div className="flex justify-center items-center py-4 relative z-10">
       {/* Desktop pill */}
       <div
-        className="hidden lg:inline-flex items-center gap-2 text-[11px] font-bold
-                   px-4 py-2 rounded-full border backdrop-blur-sm transition-colors"
+        className={`hidden lg:inline-flex items-center gap-2 text-[11px] font-bold
+                   px-4 py-2 rounded-full border backdrop-blur-sm transition-colors ${
+                     isCelebrating ? "rm-connector-flash" : ""
+                   }`}
         style={{
           background: "rgba(9,7,26,0.88)",
           borderColor: isLocked
@@ -434,8 +740,10 @@ function ConnectorPill({ course, isLocked }: ConnectorPillProps) {
 
       {/* Mobile pill */}
       <div
-        className="lg:hidden inline-flex items-center gap-1.5 text-[10px] font-bold
-                   px-3 py-1.5 rounded-full border ml-16"
+        className={`lg:hidden inline-flex items-center gap-1.5 text-[10px] font-bold
+                   px-3 py-1.5 rounded-full border ml-16 ${
+                     isCelebrating ? "rm-connector-flash" : ""
+                   }`}
         style={{
           background: "rgba(9,7,26,0.88)",
           borderColor: isLocked
@@ -462,10 +770,11 @@ interface NodeCircleProps {
   course: Course;
   theme: LangTheme;
   isLocked: boolean;
+  isCelebrating?: boolean;
   size?: number;
 }
 
-function NodeCircle({ course, theme, isLocked, size = 64 }: NodeCircleProps) {
+function NodeCircle({ course, theme, isLocked, isCelebrating, size = 64 }: NodeCircleProps) {
   const level = course.order ?? 1;
 
   return (
@@ -487,7 +796,7 @@ function NodeCircle({ course, theme, isLocked, size = 64 }: NodeCircleProps) {
 
       {/* Ring bezel */}
       <div
-        className="absolute rounded-full"
+        className={`absolute rounded-full ${isCelebrating ? "rm-unlock-glow" : ""}`}
         style={{
           width: size + 8,
           height: size + 8,
@@ -500,7 +809,9 @@ function NodeCircle({ course, theme, isLocked, size = 64 }: NodeCircleProps) {
 
       {/* Main disc */}
       <div
-        className="relative rounded-full flex items-center justify-center z-10"
+        className={`relative rounded-full flex items-center justify-center z-10 ${
+          isCelebrating ? "rm-unlock-pop" : ""
+        }`}
         style={{
           width: size,
           height: size,
@@ -537,15 +848,18 @@ interface LevelCardProps {
   course: Course;
   theme: LangTheme;
   isLocked: boolean;
+  isCelebrating?: boolean;
 }
 
-function LevelCard({ course, theme, isLocked }: LevelCardProps) {
+function LevelCard({ course, theme, isLocked, isCelebrating }: LevelCardProps) {
   const level = course.order ?? 1;
 
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden transition-all duration-300 group"
+      className={`relative rounded-2xl overflow-hidden transition-all duration-300 group ${
+        isCelebrating ? "rm-card-highlight" : ""
+      }`}
       style={{
         background: isLocked ? "rgba(14,11,28,0.92)" : "rgba(17,13,32,0.97)",
         border: `1px solid ${isLocked ? "rgba(255,255,255,0.07)" : theme.badgeBorder
@@ -741,6 +1055,8 @@ interface GhostSideProps {
 
 function GhostSide({ course, theme, isLocked, side }: GhostSideProps) {
   const align = side === "left" ? "items-start pl-2" : "items-end pr-2";
+  const level = course.order ?? 1;
+  const isFirstLevel = level === 1;
 
   return (
     <div className={`flex flex-col gap-3 py-6 ${align}`}>
@@ -757,14 +1073,16 @@ function GhostSide({ course, theme, isLocked, side }: GhostSideProps) {
             }}
           >
             <Star size={12} fill="#FFB347" strokeWidth={0} />
-            Mulai dari sini!
+            {isFirstLevel ? "Mulai dari sini!" : "Level baru terbuka! 🎉"}
           </div>
 
           <p
             className="text-xs font-medium px-1"
             style={{ color: "rgba(255,255,255,0.22)" }}
           >
-            Level pertama terbuka untuk kamu
+            {isFirstLevel
+              ? "Level pertama terbuka untuk kamu"
+              : "Kamu berhasil naik level, lanjutkan!"}
           </p>
 
           {/* Topic preview chips (from course data) */}

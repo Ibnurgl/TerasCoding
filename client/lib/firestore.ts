@@ -4,9 +4,13 @@ import {
   getDoc,
   updateDoc,
   serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc } from "firebase/firestore";
 
 
 
@@ -79,6 +83,25 @@ export const getProgress = async (
   if (!snapshot.exists()) return null;
 
   return snapshot.data();
+};
+
+/**
+ * Mengambil semua lessonId yang sudah completed oleh user.
+ * Digunakan oleh RoadmapSection untuk menentukan kursus mana yang sudah unlocked.
+ */
+export const getCompletedLessonIds = async (uid: string): Promise<Set<string>> => {
+  const q = query(
+    collection(db, "progress"),
+    where("uid", "==", uid),
+    where("completed", "==", true)
+  );
+  const snap = await getDocs(q);
+  const ids = new Set<string>();
+  snap.forEach((d) => {
+    const data = d.data();
+    if (data.lessonId) ids.add(data.lessonId as string);
+  });
+  return ids;
 };
 
 /**

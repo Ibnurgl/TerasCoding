@@ -86,6 +86,23 @@ export default function LessonPage() {
     () => (course ? flattenContentLessons(course) : []),
     [course],
   );
+  const currentContentIdx = contentLessons.findIndex(
+    (cl) => cl.sectionIdx === sectionIdx && cl.lessonIdx === lessonIdx,
+  );
+  // Materi terakhir yang punya konten dalam course ini (mis. "Mini Project") —
+  // menyelesaikan materi ini berarti seluruh level selesai.
+  const isLastContentLesson =
+    currentContentIdx !== -1 && currentContentIdx === contentLessons.length - 1;
+  // Course berikutnya di roadmap (dipakai buat animasi unlock di halaman Roadmap)
+  const sortedCourses = useMemo(
+    () => [...courses].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [],
+  );
+  const nextCourse = useMemo(() => {
+    if (!course) return null;
+    const idx = sortedCourses.findIndex((c) => c.id === course.id);
+    return idx >= 0 && idx < sortedCourses.length - 1 ? sortedCourses[idx + 1] : null;
+  }, [course, sortedCourses]);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,9 +161,6 @@ export default function LessonPage() {
   // "diselesaikan" walau masih terkunci.
   useEffect(() => {
     if (!course || !progressLoaded) return;
-    const currentContentIdx = contentLessons.findIndex(
-      (cl) => cl.sectionIdx === sectionIdx && cl.lessonIdx === lessonIdx,
-    );
     if (currentContentIdx > 0 && !isPreviousCompleted(currentContentIdx)) {
       // Cari materi pertama yang belum selesai — itu yang seharusnya dikerjakan duluan.
       const target = contentLessons.find(({ sectionIdx: sIdx, lessonIdx: lIdx }) => {
@@ -249,6 +263,38 @@ export default function LessonPage() {
     }
 
     navigate(`/kursus/${courseId}/materi/${nextLesson.sectionIdx}/${nextLesson.lessonIdx}`);
+  };
+
+  // ─── Finish level handler (last content lesson / "Mini Project") ───────────
+  const handleFinishLevel = async () => {
+    if (isSavingProgress || !course) return;
+
+    if (user && courseId) {
+      setIsSavingProgress(true);
+      const lessonId = getLessonId(courseId, sectionIdx, lessonIdx);
+      try {
+        await Promise.race([
+          saveProgress(user.uid, lessonId, true),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("saveProgress timeout")), 8000),
+          ),
+        ]);
+      } catch (err) {
+        console.error("Gagal menyimpan progress belajar:", err);
+        toast.error(
+          "Gagal menyimpan progress ke server. Progresmu mungkin belum tersimpan, coba lagi nanti.",
+        );
+      } finally {
+        setIsSavingProgress(false);
+      }
+      setCompletedMap((prev) => ({ ...prev, [lessonId]: true }));
+    }
+
+    // Redirect ke Roadmap (halaman utama) sambil bawa info level mana yang
+    // baru saja diselesaikan — RoadmapSection yang menentukan sendiri level
+    // berikutnya + XP-nya dari courseData (single source of truth), lalu
+    // memutar animasi scroll + unlock + popup selamat.
+    navigate("/", { state: { celebrateCourseId: course.id } });
   };
 
   // ─── Copy handler ───────────────────────────────────────────────────────────
@@ -592,7 +638,26 @@ export default function LessonPage() {
                 {currentFlatIdx + 1} / {totalLessons}
               </span>
 
-              {nextLesson ? (
+              {isLastContentLesson ? (
+                <button
+                  type="button"
+                  onClick={handleFinishLevel}
+                  disabled={isSavingProgress}
+                  className="inline-flex items-center gap-1.5 text-white bg-gradient-to-r from-orange to-orange-dark hover:brightness-110 text-sm font-bold transition-all px-5 py-2.5 rounded-lg shadow-orange-glow hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {isSavingProgress ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      🎉 Selesaikan Level
+                      <ArrowRight size={15} />
+                    </>
+                  )}
+                </button>
+              ) : nextLesson ? (
                 <button
                   type="button"
                   onClick={handleNext}

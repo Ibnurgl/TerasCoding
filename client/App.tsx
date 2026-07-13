@@ -25,9 +25,9 @@ function RootApp() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <Toaster />
-          <Sonner />
           <BrowserRouter>
+            <Toaster />
+            <Sonner />
             <Header />
             <Routes>
               <Route path="/" element={<Index />} />
