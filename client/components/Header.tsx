@@ -4,6 +4,7 @@ import { Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { logoutUser } from "@/lib/auth";
 import { User } from "lucide-react";
+import ProfileCard from "@/components/ProfileCard";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -83,11 +84,18 @@ export default function Header() {
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
-                <div className="flex items-center gap-2 px-4 py-2 bg-lavender rounded-xl">
-                  <User size={18} className="text-purple" />
-                  <span className="font-medium text-sm text-purple">
-                    {user.displayName || "User"}
-                  </span>
+                {/* Username pill with hover profile card */}
+                <div className="relative group/profile" style={{ zIndex: 100 }}>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-lavender rounded-xl cursor-pointer select-none">
+                    <User size={18} className="text-purple" />
+                    <span className="font-medium text-sm text-purple">
+                      {user.displayName || "User"}
+                    </span>
+                  </div>
+                  {/* Profile card — shown on hover */}
+                  <div className="hidden group-hover/profile:block">
+                    <ProfileCard user={user} />
+                  </div>
                 </div>
 
                 <button
