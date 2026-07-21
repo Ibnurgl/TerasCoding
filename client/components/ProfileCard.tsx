@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState, CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
 import { User } from "firebase/auth";
 import { courses } from "@/lib/courseData";
 import { getCompletedLessonIds } from "@/lib/firestore";
@@ -62,6 +63,7 @@ const s = {
     fontFamily: "'Orbitron','Share Tech Mono',monospace",
     zIndex: 999,
     animation: "hud-fadein 0.18s ease-out",
+    cursor: "pointer",
   } satisfies CSSProperties,
 
   scanline: {
@@ -150,6 +152,7 @@ interface ProfileCardProps {
 }
 
 export default function ProfileCard({ user }: ProfileCardProps) {
+  const navigate = useNavigate();
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -209,7 +212,7 @@ export default function ProfileCard({ user }: ProfileCardProps) {
         }
       `}</style>
 
-      <div style={s.card}>
+      <div style={s.card} onClick={() => navigate("/profile")}>
         {/* Scan-line overlay */}
         <div style={s.scanline} />
         {/* Corner brackets */}

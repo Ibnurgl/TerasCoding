@@ -86,16 +86,25 @@ export default function Header() {
               <>
                 {/* Username pill with hover profile card */}
                 <div className="relative group/profile" style={{ zIndex: 100 }}>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-lavender rounded-xl cursor-pointer select-none">
+                  <Link
+                    to="/profile"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer select-none transition-all duration-300 ${
+                      location.pathname === "/profile"
+                        ? "text-purple bg-lavender border border-purple/30 font-bold"
+                        : "text-purple bg-lavender/50 hover:bg-lavender hover:opacity-90 font-medium"
+                    }`}
+                  >
                     <User size={18} className="text-purple" />
-                    <span className="font-medium text-sm text-purple">
+                    <span className="text-sm">
                       {user.displayName || "User"}
                     </span>
-                  </div>
-                  {/* Profile card — shown on hover */}
-                  <div className="hidden group-hover/profile:block">
-                    <ProfileCard user={user} />
-                  </div>
+                  </Link>
+                  {/* Profile card — shown on hover except on the profile page itself */}
+                  {location.pathname !== "/profile" && (
+                    <div className="hidden group-hover/profile:block">
+                      <ProfileCard user={user} />
+                    </div>
+                  )}
                 </div>
 
                 <button

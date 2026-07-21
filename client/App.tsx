@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ function RootApp() {
               <Route path="/kursus/:id" element={<CourseDetail />} />
               <Route path="/kursus/:courseId/materi/:sectionIdx/:lessonIdx" element={ <ProtectedRoute><LessonPage /></ProtectedRoute>}/>
               <Route path="/playground" element={<Playground />} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/tantangan" element={<Placeholder />} />
               <Route path="/komunitas" element={<Placeholder />} />
               <Route path="/login" element={<Login />} />

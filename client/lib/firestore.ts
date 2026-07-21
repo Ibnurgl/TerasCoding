@@ -104,6 +104,36 @@ export const getCompletedLessonIds = async (uid: string): Promise<Set<string>> =
   return ids;
 };
 
+export interface ProgressDoc {
+  lessonId: string;
+  completed: boolean;
+  updatedAt?: any;
+}
+
+/**
+ * Mengambil semua progress dokumen milik user (baik selesai maupun belum)
+ * untuk kalkulasi detail progress & pencarian materi terakhir yang dipelajari.
+ */
+export const getUserProgressList = async (uid: string): Promise<ProgressDoc[]> => {
+  const q = query(
+    collection(db, "progress"),
+    where("uid", "==", uid)
+  );
+  const snap = await getDocs(q);
+  const list: ProgressDoc[] = [];
+  snap.forEach((d) => {
+    const data = d.data();
+    if (data.lessonId) {
+      list.push({
+        lessonId: data.lessonId,
+        completed: !!data.completed,
+        updatedAt: data.updatedAt,
+      });
+    }
+  });
+  return list;
+};
+
 /**
  * Menyimpan hasil quiz
  */
