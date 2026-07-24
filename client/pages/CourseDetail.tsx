@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -14,12 +14,11 @@ import {
   Zap,
   Check,
   Lock,
-  Trophy,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { courses } from "@/lib/courseData";
 import { useAuth } from "@/contexts/AuthContext";
-import { getProgress } from "@/lib/firestore";
+import { getProgress, getCompletedLessonIds } from "@/lib/firestore";
 import { getLessonId, flattenContentLessons } from "@/lib/progress";
 import Footer from "@/components/Footer";
 
@@ -87,8 +86,16 @@ const indentClass: Record<0 | 1 | 2 | 3, string> = {
 export default function CourseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
-  const course = courses.find((c) => c.id === id);
+  const normalizedId = id?.toLowerCase() ?? "";
+  const course = courses.find(
+    (c) =>
+      c.id === id ||
+      (normalizedId === "js-level-3" && c.id === "javascript-level-3") ||
+      (normalizedId === "js" && c.id === "javascript-level-3") ||
+      (normalizedId === "javascript" && c.id === "javascript-level-3") ||
+      (normalizedId === "css" && c.id === "css-level-2") ||
+      (normalizedId === "html" && c.id === "html-level-1")
+  );
 
   if (!course) {
     return (
@@ -115,6 +122,7 @@ export default function CourseDetail() {
 
   const { user } = useAuth();
   const [completedMap, setCompletedMap] = useState<Record<string, boolean>>({});
+  const [allCompletedLessonIds, setAllCompletedLessonIds] = useState<Set<string>>(new Set());
   const [progressLoaded, setProgressLoaded] = useState(false);
 
   const contentLessons = flattenContentLessons(course);
@@ -127,26 +135,32 @@ export default function CourseDetail() {
       if (!user) {
         if (!cancelled) {
           setCompletedMap({});
+          setAllCompletedLessonIds(new Set());
           setProgressLoaded(true);
         }
         return;
       }
 
       try {
-        const entries = (await Promise.race([
-          Promise.all(
-            contentLessons.map(async ({ sectionIdx, lessonIdx }) => {
-              const lessonId = getLessonId(course.id, sectionIdx, lessonIdx);
-              const data = await getProgress(user.uid, lessonId);
-              return [lessonId, !!data?.completed] as const;
-            }),
-          ),
+        const [entries, allIds] = (await Promise.race([
+          Promise.all([
+            Promise.all(
+              contentLessons.map(async ({ sectionIdx, lessonIdx }) => {
+                const lessonId = getLessonId(course.id, sectionIdx, lessonIdx);
+                const data = await getProgress(user.uid, lessonId);
+                return [lessonId, !!data?.completed] as const;
+              }),
+            ),
+            getCompletedLessonIds(user.uid),
+          ]),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error("getProgress timeout")), 8000),
           ),
-        ])) as [string, boolean][];
+        ])) as [[string, boolean][], Set<string>];
+
         if (!cancelled) {
           setCompletedMap(Object.fromEntries(entries));
+          setAllCompletedLessonIds(allIds);
           setProgressLoaded(true);
         }
       } catch (err) {
@@ -161,6 +175,20 @@ export default function CourseDetail() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, course.id]);
+
+  const completedCourseSet = useMemo(() => {
+    const set = new Set<string>();
+    courses.forEach((c) => {
+      const cLessons = flattenContentLessons(c);
+      if (cLessons.length > 0) {
+        const allDone = cLessons.every(({ sectionIdx, lessonIdx }) =>
+          allCompletedLessonIds.has(getLessonId(c.id, sectionIdx, lessonIdx))
+        );
+        if (allDone) set.add(c.id);
+      }
+    });
+    return set;
+  }, [allCompletedLessonIds]);
 
   /** A content lesson is unlocked if it's the first one, or the lesson right before it is completed. */
   function isPreviousCompleted(contentIdx: number) {
@@ -223,13 +251,14 @@ export default function CourseDetail() {
             const sorted = [...courses].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             return (
               <div className="absolute top-5 right-4 flex items-center gap-1.5">
-                {sorted.map((c) => {
+                {sorted.map((c, index) => {
                   const isCurrent = c.id === course.id;
-                  const isCompleted = (c.order ?? 0) < (course.order ?? 1);
-                  const isLocked = (c.order ?? 0) > (course.order ?? 1);
+                  const isCompleted = completedCourseSet.has(c.id);
+                  const prevCourse = index > 0 ? sorted[index - 1] : null;
+                  const isUnlocked = index === 0 || (prevCourse ? completedCourseSet.has(prevCourse.id) : false);
+                  const isLocked = !isUnlocked;
 
                   // Derive preview info from statBadges
-                  const xpBadge = c.statBadges.find((b) => b.label.includes("XP"));
                   const lessonsBadge = c.statBadges.find((b) => b.label.includes("Materi"));
                   const miniProject = c.statBadges.find(
                     (b) => b.label.toLowerCase().includes("project") || b.label.toLowerCase().includes("app")
@@ -247,7 +276,7 @@ export default function CourseDetail() {
                       className={`relative group flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-sm transition-all duration-200 select-none ${
                         isCurrent
                           ? "bg-orange/20 border-orange/50 text-orange shadow-sm"
-                          : isCompleted
+                          : isUnlocked
                           ? "bg-white/10 border-white/20 text-white/80 cursor-pointer hover:bg-white/15"
                           : "bg-white/5 border-white/10 text-white/35 cursor-not-allowed"
                       }`}
@@ -294,12 +323,6 @@ export default function CourseDetail() {
                                   {lessonsBadge.label}
                                 </span>
                               )}
-                              {xpBadge && (
-                                <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-400/20 text-yellow-300">
-                                  <Trophy size={10} />
-                                  {xpBadge.label}
-                                </span>
-                              )}
                               {miniProject && (
                                 <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-400/20 text-orange-300">
                                   {miniProject.label}
@@ -323,15 +346,15 @@ export default function CourseDetail() {
                     </div>
                   );
 
-                  // Completed: wrap with Link so they can revisit
-                  if (isCompleted) {
+                  // Unlocked & not current: wrap with Link so user can navigate
+                  if (isUnlocked && !isCurrent) {
                     return (
                       <Link key={c.id} to={`/kursus/${c.id}`}>
                         {pill}
                       </Link>
                     );
                   }
-                  // Active: no link needed, already on this page
+                  // Active or Locked: no link needed
                   return pill;
                 })}
               </div>
@@ -716,13 +739,6 @@ export default function CourseDetail() {
                       bg: "bg-blue-50",
                       label: "Belajar interaktif",
                       desc: "Latihan langsung di setiap modul agar belajar terasa nyata.",
-                    },
-                    {
-                      icon: Users,
-                      color: "text-purple-500",
-                      bg: "bg-purple-50",
-                      label: "Support komunitas",
-                      desc: "Bergabung dengan ribuan pelajar dan tanya jawab kapan saja.",
                     },
                     {
                       icon: BookOpen,

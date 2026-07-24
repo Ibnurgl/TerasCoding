@@ -18,7 +18,6 @@ import {
   Calendar,
   CheckCircle,
   Play,
-  Star,
 } from "lucide-react";
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -156,14 +155,6 @@ export default function Profile() {
     const computed = completedCoursesCount + 1;
     return computed <= courses.length ? computed : courses.length;
   }, [completedCoursesCount]);
-
-  const xp = useMemo(() => {
-    // XP is sum of XP of completed courses
-    const sortedCourses = [...courses].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    return sortedCourses
-      .filter((_, idx) => courseProgresses[idx]?.completed === courseProgresses[idx]?.total)
-      .reduce((sum, c) => sum + c.xp, 0);
-  }, [courseProgresses]);
 
   // Parse last studied lesson
   const lastStudiedInfo = useMemo(() => {
@@ -423,25 +414,19 @@ export default function Profile() {
             <div className="grid grid-cols-2 gap-3.5">
               <div className="bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col items-center text-center">
                 <Trophy size={16} className="text-yellow-400 mb-1" />
-                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1">Level</p>
+                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1">Level Aktiv</p>
                 <p className="text-lg font-black text-cyan">{level}</p>
-              </div>
-              
-              <div className="bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col items-center text-center">
-                <Star size={16} className="text-cyan mb-1" />
-                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1">XP</p>
-                <p className="text-lg font-black text-cyan">{xp}</p>
               </div>
 
               <div className="bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col items-center text-center">
                 <BookOpen size={16} className="text-orange mb-1" />
-                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mb-0.5">Materi</p>
+                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mb-0.5">Materi Selesai</p>
                 <p className="text-lg font-black text-cyan">{completedLessonsCount}</p>
               </div>
 
-              <div className="bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col items-center text-center">
+              <div className="col-span-2 bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col items-center text-center">
                 <Award size={16} className="text-emerald-400 mb-1" />
-                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mb-0.5">Level Selesai</p>
+                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mb-0.5">Kursus Selesai</p>
                 <p className="text-lg font-black text-cyan">{completedCoursesCount}</p>
               </div>
             </div>

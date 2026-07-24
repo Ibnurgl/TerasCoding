@@ -91,6 +91,16 @@ export interface CurriculumSection {
   lessons: CurriculumLesson[];
 }
 
+export interface MiniProjectDetail {
+  title: string;
+  description: string;
+  usedMaterials: string[];
+  projectGoal: string;
+  criteria: string[];
+  /** Path to preview image (relative to /public), e.g. "/mini-project-css-preview.png" */
+  previewImage?: string;
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -105,7 +115,6 @@ export interface Course {
   order?: number;
   topics?: string[];
   color?: string;
-  xp: number;
   heroDescription: string;
   statBadges: StatBadge[];
   codePreviewFile: string;
@@ -114,10 +123,11 @@ export interface Course {
   curriculum: CurriculumSection[];
   ctaSubtitle: string;
   ctaAudience: string[];
+  miniProjectDetail?: MiniProjectDetail;
   /**
    * High-level topic list shown on the Frontend Learning Path page.
    * Kept here so courseData.ts stays the single source of truth.
-   * Future lesson metadata (id, slug, duration, xp) can be added per item.
+   * Future lesson metadata (id, slug, duration) can be added per item.
    */
   curriculumPreview?: string[];
 }
@@ -143,7 +153,6 @@ export const courses: Course[] = [
     topics: ["Heading & Paragraph", "Link & Image", "List", "Table", "Basic Form"],
     color: "#E8471A",
 
-    xp: 100,
     heroDescription:
       "Mulai perjalanan coding pertamamu dan pelajari cara membangun website dari nol menggunakan HTML.",
 
@@ -153,12 +162,6 @@ export const courses: Course[] = [
         label: "8 Materi",
         color: "text-blue-300",
         bg: "bg-blue-500/15 border-blue-400/20",
-      },
-      {
-        icon: Trophy,
-        label: "+100 XP",
-        color: "text-yellow-300",
-        bg: "bg-yellow-500/15 border-yellow-400/20",
       },
       {
         icon: Target,
@@ -1306,6 +1309,33 @@ export const courses: Course[] = [
     ctaSubtitle: "Cocok untuk kamu yang baru mulai",
     ctaAudience: ["Pemula total", "Pelajar sekolah", "Belum pernah coding"],
 
+    miniProjectDetail: {
+      title: "Mini Project HTML Fundamentals",
+      description:
+        "Selamat! Kamu telah menyelesaikan seluruh materi pada level ini. Sekarang saatnya menerapkan seluruh konsep yang telah dipelajari ke dalam satu project sederhana.",
+      usedMaterials: [
+        "Struktur HTML",
+        "Heading & Paragraph",
+        "Link",
+        "Image",
+        "List",
+        "Table",
+        "Form",
+      ],
+      projectGoal:
+        "Buat sebuah halaman profil pribadi sederhana yang menerapkan seluruh materi HTML yang telah dipelajari.",
+      criteria: [
+        "Menggunakan struktur HTML yang benar (<html>, <head>, <body>)",
+        "Memiliki Heading utama dan sub-heading",
+        "Memiliki Paragraf penjelasan",
+        "Memiliki Gambar profil atau ilustrasi (tag <img>)",
+        "Memiliki Link navigasi atau media sosial (tag <a>)",
+        "Memiliki List daftar hobi atau keahlian (<ul>/<ol>)",
+        "Memiliki Form kontak atau Tabel informasi sederhana",
+      ],
+      previewImage: "/miniproject-html-example.png",
+    },
+
     // ── Frontend Learning Path preview ──────────────────────────────────────
     curriculumPreview: [
       "Apa itu HTML",
@@ -1338,7 +1368,6 @@ export const courses: Course[] = [
     topics: ["Color Styling", "Flexbox", "Grid", "Hover Effect", "Responsive Design"],
     color: "#2965F1",
 
-    xp: 150,
     heroDescription:
       "Ubah website HTML-mu menjadi lebih cantik dan profesional dengan CSS modern.",
 
@@ -1348,12 +1377,6 @@ export const courses: Course[] = [
         label: "10 Materi",
         color: "text-blue-300",
         bg: "bg-blue-500/15 border-blue-400/20",
-      },
-      {
-        icon: Trophy,
-        label: "+150 XP",
-        color: "text-yellow-300",
-        bg: "bg-yellow-500/15 border-yellow-400/20",
       },
       {
         icon: Target,
@@ -2550,8 +2573,185 @@ export const courses: Course[] = [
         title: "Mini Project",
         icon: "🚀",
         lessons: [
-          { name: "Membuat landing page responsive"},
-          { name: "Mini challenge CSS"},
+          {
+            name: "Mini Project: Landing Page Portofolio Sederhana",
+            content: {
+              sections: [
+                {
+                  paragraphs: [
+                    "Selamat! Kamu telah menyelesaikan seluruh materi CSS.",
+                    "Sekarang saatnya menerapkan semua yang telah dipelajari dengan membuat sebuah **Landing Page Portofolio Sederhana**.",
+                    "Kamu bebas mengubah warna, font, maupun tata letak selama memenuhi kriteria berikut.",
+                  ],
+                },
+                {
+                  heading: "Kriteria Project",
+                  paragraphs: [
+                    "Halaman minimal memiliki: **Navbar**, **Hero Section**, **Tombol Call To Action**, **Section Skills**, dan **Footer**.",
+                  ],
+                },
+                {
+                  heading: "Gunakan Materi CSS",
+                  paragraphs: [
+                    "Minimal menerapkan: **Flexbox**, **CSS Grid**, **Box Model**, **Typography**, **Color**, **Hover & Transition**, **Responsive (Media Queries)**, dan **Animation sederhana**.",
+                  ],
+                },
+                {
+                  heading: "Contoh Tampilan",
+                  paragraphs: [
+                    "Gunakan contoh kode di bawah ini sebagai inspirasi. Kamu tidak harus membuatnya sama persis — kreativitasmu sepenuhnya bebas selama kriteria terpenuhi.",
+                  ],
+                },
+              ],
+
+              tip: "Mulai dari struktur HTML-nya dulu sebelum masuk ke CSS. Buat semua elemen (navbar, hero, skills, footer) terlebih dahulu, baru tambahkan styling satu per satu dari atas ke bawah.",
+
+              note: "Pilih 2–3 warna utama saja dan terapkan secara konsisten di seluruh halaman. Konsistensi warna membuat desain terlihat lebih profesional meski sederhana.",
+
+              exampleCode: {
+                html: `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portofolio</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 32px;
+      background: #1a1a2e;
+      color: white;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      transition: color 0.3s;
+    }
+    nav a:hover { color: #e94560; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 20px;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: white;
+      animation: fadeIn 1s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero h1 { font-size: 2.5rem; margin-bottom: 16px; }
+    .hero p  { margin-bottom: 24px; opacity: 0.8; }
+    .btn {
+      background: #e94560;
+      color: white;
+      padding: 12px 32px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .btn:hover { background: #c73652; transform: scale(1.05); }
+
+    /* Skills Grid */
+    .skills {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      padding: 60px 32px;
+      background: #f9fafb;
+    }
+    .skill-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      transition: transform 0.2s;
+    }
+    .skill-card:hover { transform: translateY(-4px); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 24px;
+      background: #1a1a2e;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.875rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 1.75rem; }
+      header { flex-direction: column; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span style="font-weight:bold;font-size:1.1rem;">Namaku</span>
+    <nav>
+      <a href="#">Tentang</a>
+      <a href="#">Skill</a>
+      <a href="#">Kontak</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Halo, Saya <span style="color:#e94560">Nama Kamu</span> 👋</h1>
+    <p>Front-end Developer yang suka membuat UI yang bersih & modern.</p>
+    <button class="btn">Lihat Proyek Saya</button>
+  </section>
+
+  <section class="skills">
+    <div class="skill-card">💻 HTML</div>
+    <div class="skill-card">🎨 CSS</div>
+    <div class="skill-card">⚡ JavaScript</div>
+    <div class="skill-card">📱 Responsive</div>
+  </section>
+
+  <footer>
+    <p>© 2026 Nama Kamu · Dibuat dengan ❤️ dan CSS</p>
+  </footer>
+
+</body>
+</html>`,
+                css: ``,
+                js: ``
+              },
+
+              starterCode: {
+                html: ``,
+                css: ``,
+                js: ``
+              },
+
+              challenge: {
+                title: "Landing Page Portofolio",
+                description: "Buat landing page portofolio menggunakan semua materi CSS yang telah dipelajari.",
+                checklist: [
+                  "Buat Navbar menggunakan Flexbox (nama di kiri, nav di kanan)",
+                  "Buat Hero Section dengan teks perkenalan singkat",
+                  "Tambahkan tombol Call To Action (CTA) pada Hero",
+                  "Buat Section Skills menggunakan CSS Grid (minimal 3 item)",
+                  "Tambahkan @keyframes Animation pada Hero atau elemen lain",
+                  "Tambahkan efek :hover + transition pada tombol dan card",
+                  "Terapkan Typography (font-family, font-size, line-height)",
+                  "Buat tampilan Responsive dengan Media Queries",
+                  "Buat Footer di bagian paling bawah halaman",
+                ]
+              },
+            },
+          },
         ],
       },
     ],
@@ -2562,6 +2762,32 @@ export const courses: Course[] = [
       "Ingin desain lebih keren",
       "Mau kuasai layout modern",
     ],
+
+    miniProjectDetail: {
+      title: "Mini Project CSS: Landing Page Portofolio Sederhana",
+      description:
+        "Selamat! Kamu telah menyelesaikan seluruh materi CSS. Sekarang saatnya menerapkan semua yang telah dipelajari dengan membuat sebuah Landing Page Portofolio Sederhana. Kamu bebas mengubah warna, font, maupun tata letak selama memenuhi kriteria berikut.",
+      usedMaterials: [
+        "Flexbox",
+        "CSS Grid",
+        "Box Model",
+        "Typography",
+        "Color",
+        "Hover & Transition",
+        "Responsive (Media Queries)",
+        "Animation sederhana",
+      ],
+      projectGoal:
+        "Membuat sebuah Landing Page Portofolio Sederhana dengan menerapkan materi CSS yang telah dipelajari..",
+      criteria: [
+        "Memiliki minimal 4 section (Navbar, Hero, Skills, Footer)",
+        "Menggunakan Flexbox atau CSS Grid",
+        "Responsif pada layar mobile",
+        "Memiliki minimal 1 efek hover",
+        "Memiliki tampilan yang rapi dan mudah dibaca",
+      ],
+      previewImage: "/miniproject-css-example.png",
+    },
 
     // ── Frontend Learning Path preview ──────────────────────────────────────
     curriculumPreview: [
@@ -2596,7 +2822,6 @@ export const courses: Course[] = [
     topics: ["Variables", "Function", "Event Button", "DOM Basics", "Mini Interaction"],
     color: "#F7DF1E",
 
-    xp: 200,
     heroDescription:
       "Tambahkan interaksi seru dan buat website kamu benar-benar hidup dengan JavaScript!",
 
@@ -2606,12 +2831,6 @@ export const courses: Course[] = [
         label: "12 Materi",
         color: "text-blue-300",
         bg: "bg-blue-500/15 border-blue-400/20",
-      },
-      {
-        icon: Trophy,
-        label: "+200 XP",
-        color: "text-yellow-300",
-        bg: "bg-yellow-500/15 border-yellow-400/20",
       },
       {
         icon: Target,
@@ -2823,6 +3042,13 @@ export const courses: Course[] = [
                 },
               },
           },
+          
+        ]
+      },
+      {
+        title: "Tipe Data & Operator",
+        icon: "🔢",
+        lessons: [
           { name: "Tipe Data dan Operator",
               content: {
                 sections: [
@@ -2956,7 +3182,12 @@ export const courses: Course[] = [
                 },
               },
             },
-
+        ],
+      },
+      {
+        title: "Kontrol Alur",
+        icon: "🔀",
+        lessons: [
           { name: "Kontrol Alur",
             content: {
                 sections: [
@@ -3030,24 +3261,6 @@ export const courses: Course[] = [
                 },
               },
             },
-        ]
-      },
-      {
-        title: "Tipe Data & Operator",
-        icon: "🔢",
-        lessons: [
-          { name: "String, number, boolean"},
-          { name: "Operator aritmatika & logika"},
-          { name: "Template literals"},
-        ],
-      },
-      {
-        title: "Kontrol Alur",
-        icon: "🔀",
-        lessons: [
-          { name: "If / else statement"},
-          { name: "Switch case"},
-          { name: "Loop: for & while" },
         ],
       },
       {
@@ -3055,8 +3268,7 @@ export const courses: Course[] = [
         icon: "⚙️",
         lessons: [
           { name: "Membuat & memanggil function"},
-          { name: "Parameter & return value"},
-          { name: "Arrow function"},
+
         ],
       },
       {
@@ -3064,16 +3276,112 @@ export const courses: Course[] = [
         icon: "🖱️",
         lessons: [
           { name: "Apa itu DOM?"},
-          { name: "Mengubah elemen dengan JS"},
-          { name: "addEventListener dasar"},
         ],
       },
       {
         title: "Mini Project",
         icon: "🚀",
         lessons: [
-          { name: "Membuat to-do list interaktif"},
-          { name: "Mini challenge JavaScript"},
+          {
+            name: "Mini Project: Website Portofolio Interaktif",
+            content: {
+              sections: [
+                {
+                  paragraphs: [
+                    "Selamat! Kamu telah menyelesaikan seluruh materi JavaScript.",
+                    "Sekarang saatnya menghidupkan Landing Page Portofolio yang telah kamu buat sebelumnya dengan menambahkan berbagai fitur interaktif menggunakan JavaScript.",
+                    "Kamu bebas menambahkan fitur selama memenuhi seluruh kriteria project.",
+                  ],
+                },
+                {
+                  heading: "Tujuan Project",
+                  paragraphs: [
+                    "Menerapkan konsep dasar JavaScript untuk membuat halaman web yang dapat merespons interaksi pengguna.",
+                  ],
+                },
+                {
+                  heading: "Materi yang Digunakan",
+                  paragraphs: [
+                    "Variabel, Tipe Data & Operator, Percabangan, Perulangan, Function, DOM Manipulation, dan Event.",
+                  ],
+                },
+              ],
+              tip: "Gunakan document.querySelector atau document.getElementById untuk memilih elemen HTML, lalu pasang addEventListener untuk menangani aksi klik atau input dari pengguna.",
+              note: "Pastikan kode JavaScript ditaruh sebelum tag penutup </body> atau gunakan event DOMContentLoaded agar elemen HTML sudah dimuat sempurna sebelum dimanipulasi.",
+              exampleCode: {
+                html: `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portofolio Interaktif</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; transition: background 0.3s, color 0.3s; }
+    .dark-mode { background: #1a1a2e; color: white; }
+    button { padding: 12px 24px; font-size: 1rem; cursor: pointer; border-radius: 8px; border: none; background: #0066cc; color: white; }
+  </style>
+</head>
+<body>
+  <h1 id="sapaan">Halo, Selamat Datang! 👋</h1>
+  <p id="deskripsi">Klik tombol di bawah untuk mengubah tema halaman.</p>
+  <button id="btnTema">Ganti Tema 🌙</button>
+
+  <script>
+    const btnTema = document.getElementById('btnTema');
+    const sapaan = document.getElementById('sapaan');
+
+    function gantiTema() {
+      document.body.classList.toggle('dark-mode');
+      if (document.body.classList.contains('dark-mode')) {
+        btnTema.textContent = 'Ganti Tema ☀️';
+        sapaan.textContent = 'Selamat Malam, Developer! 🌙';
+      } else {
+        btnTema.textContent = 'Ganti Tema 🌙';
+        sapaan.textContent = 'Halo, Selamat Datang! 👋';
+      }
+    }
+
+    btnTema.addEventListener('click', gantiTema);
+  </script>
+</body>
+</html>`,
+                css: ``,
+                js: ``,
+              },
+              starterCode: {
+                html: `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Portofolio Interaktif Saya</title>
+</head>
+<body>
+  <!-- Tambahkan elemen HTML kamu di sini -->
+  <h1 id="judul">Portofolio Interaktif</h1>
+  <button id="tombolAksi">Klik Saya!</button>
+
+  <script>
+    // Tulis kode JavaScript kamu di sini
+
+  </script>
+</body>
+</html>`,
+                css: ``,
+                js: ``,
+              },
+              challenge: {
+                title: "Website Portofolio Interaktif",
+                description: "Tambahkan fitur interaktif pada portofolio menggunakan JavaScript.",
+                checklist: [
+                  "Buat tombol yang dapat merespons klik pengguna",
+                  "Ubah isi atau tampilan halaman menggunakan JavaScript (DOM Manipulation)",
+                  "Gunakan minimal satu Function untuk membungkus logika",
+                  "Gunakan DOM dan Event (addEventListener)",
+                  "Tambahkan minimal satu interaksi buatanmu sendiri",
+                ],
+              },
+            },
+          },
         ],
       },
     ],
@@ -3084,6 +3392,30 @@ export const courses: Course[] = [
       "Ingin website interaktif",
       "Mau jadi developer handal",
     ],
+
+    miniProjectDetail: {
+      title: "Mini Project JavaScript: Website Portofolio Interaktif",
+      description:
+        "Selamat! Kamu telah menyelesaikan seluruh materi JavaScript. Sekarang saatnya menghidupkan Landing Page Portofolio yang telah kamu buat sebelumnya dengan menambahkan berbagai fitur interaktif menggunakan JavaScript. Tampilan tidak harus sama persis, kamu bebas menambahkan fitur selama memenuhi seluruh kriteria project.",
+      usedMaterials: [
+        "Variabel",
+        "Tipe Data & Operator",
+        "Percabangan",
+        "Perulangan",
+        "Function",
+        "DOM Manipulation",
+        "Event",
+      ],
+      projectGoal:
+        "Menerapkan konsep dasar JavaScript untuk membuat halaman web yang dapat merespons interaksi pengguna.",
+      criteria: [
+        "Tombol yang dapat merespons klik pengguna",
+        "Mengubah isi atau tampilan halaman menggunakan JavaScript",
+        "Menggunakan minimal satu Function",
+        "Menggunakan DOM dan Event",
+        "Menambahkan minimal satu interaksi yang dibuat sendiri",
+      ],
+    },
 
     // ── Frontend Learning Path preview ──────────────────────────────────────
     curriculumPreview: [

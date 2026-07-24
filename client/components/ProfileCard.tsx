@@ -26,9 +26,9 @@ interface CourseStatus {
 
 interface ProfileData {
   level: number;          // number of completed courses + 1 (current active)
-  totalXP: number;        // XP from completed courses
-  maxXP: number;          // XP from all courses (target)
   title: string;          // dynamic title based on level
+  completedCount: number;
+  totalCourses: number;
   courseStatuses: CourseStatus[];
 }
 
@@ -157,7 +157,6 @@ export default function ProfileCard({ user }: ProfileCardProps) {
   const [loading, setLoading] = useState(true);
 
   const sortedCourses = [...courses].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const maxXP = sortedCourses.reduce((sum, c) => sum + c.xp, 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,11 +183,8 @@ export default function ProfileCard({ user }: ProfileCardProps) {
 
         const completedCount = courseStatuses.filter((c) => c.completed).length;
         const level = completedCount + 1 <= sortedCourses.length ? completedCount + 1 : sortedCourses.length;
-        const totalXP = sortedCourses
-          .filter((c, i) => courseStatuses[i]?.completed)
-          .reduce((sum, c) => sum + c.xp, 0);
 
-        setData({ level, totalXP, maxXP, title: getTitleByLevel(level), courseStatuses });
+        setData({ level, title: getTitleByLevel(level), completedCount, totalCourses: sortedCourses.length, courseStatuses });
         setLoading(false);
       })
       .catch(() => {
@@ -200,7 +196,7 @@ export default function ProfileCard({ user }: ProfileCardProps) {
   }, [user.uid]);
 
   const displayName = user.displayName || user.email?.split("@")[0] || "User";
-  const xpPercent = data ? Math.min(100, Math.round((data.totalXP / data.maxXP) * 100)) : 0;
+  const progressPercent = data && data.totalCourses > 0 ? Math.min(100, Math.round((data.completedCount / data.totalCourses) * 100)) : 0;
 
   return (
     <>
@@ -289,7 +285,7 @@ export default function ProfileCard({ user }: ProfileCardProps) {
               <div style={{
                 position:"absolute",
                 inset:0,
-                width: loading ? "0%" : `${xpPercent}%`,
+                width: loading ? "0%" : `${progressPercent}%`,
                 background:"linear-gradient(90deg,rgba(0,160,255,0.8),rgba(0,220,255,1))",
                 boxShadow:"0 0 8px rgba(0,200,255,0.7)",
                 transition:"width 0.6s ease",
@@ -304,7 +300,7 @@ export default function ProfileCard({ user }: ProfileCardProps) {
             </div>
 
             <span style={{ fontSize:10, fontWeight:700, color:"rgba(0,220,255,0.9)", flexShrink:0, letterSpacing:"0.05em" }}>
-              exp: {loading ? "..." : data?.totalXP ?? 0}
+              {loading ? "..." : `${data?.completedCount ?? 0}/${data?.totalCourses ?? 3}`}
             </span>
           </div>
 

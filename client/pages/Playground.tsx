@@ -626,12 +626,6 @@ export default function Playground() {
               Mulai Belajar HTML
               <ArrowRight size={18} />
             </Link>
-            <Link
-              to="/komunitas"
-              className="inline-flex items-center gap-2 text-white/70 hover:text-white border border-white/20 hover:border-white/40 font-semibold py-4 px-8 rounded-xl transition-all duration-300 text-base"
-            >
-              Bergabung Komunitas
-            </Link>
           </div>
         </div>
       </section>

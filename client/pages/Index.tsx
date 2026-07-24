@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Play, Zap, Users, Trophy, Code2, Layers, Smartphone, BookOpen } from "lucide-react";
-import MiniQuiz from "@/components/MiniQuiz";
 import RoadmapSection from "@/components/RoadmapSection";
 import Footer from "@/components/Footer";
 
@@ -77,11 +76,11 @@ export default function Index() {
               <div className="flex flex-wrap gap-6 pt-6 border-t border-purple/10">
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 bg-orange/10 rounded-xl flex items-center justify-center">
-                    <Users size={18} className="text-orange" />
+                    <BookOpen size={18} className="text-orange" />
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-purple leading-none">1000+</p>
-                    <p className="text-xs text-gray-500">Pelajar Belajar</p>
+                    <p className="text-xl font-bold text-purple leading-none">20+</p>
+                    <p className="text-xs text-gray-500">Latihan Soal</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -189,14 +188,6 @@ export default function Index() {
                 </div>
               </div>
 
-              {/* Floating XP badge */}
-              <div
-                className="absolute -bottom-4 -right-4 bg-gradient-to-br from-orange to-orange-dark text-white rounded-2xl px-4 py-3 shadow-orange-glow animate-float-slow z-20"
-                style={{ animationDelay: "0.4s" }}
-              >
-                <p className="text-xs font-semibold opacity-80">Kamu dapat</p>
-                <p className="text-xl font-bold">+30 XP 🏆</p>
-              </div>
             </div>
           </div>
         </div>
@@ -277,7 +268,7 @@ export default function Index() {
 
                 {/* Headline */}
                 <h2 className="text-3xl lg:text-4xl font-bold text-white mb-5 leading-tight">
-                  <img src="/codingicon.svg" alt="XP" className="inline w-10 h-10 mr-1 object-contain" /> Tulis Kode &amp; Lihat Hasilnya Seketika
+                  <img src="/codingicon.svg" alt="coding" className="inline w-10 h-10 mr-1 object-contain" /> Tulis Kode &amp; Lihat Hasilnya Seketika
                 </h2>
 
                 {/* Description */}
@@ -322,10 +313,6 @@ export default function Index() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════
-          MINI QUIZ
-      ═══════════════════════════════════════════ */}
-      <MiniQuiz />
 
       {/* ═══════════════════════════════════════════
           FEATURES / WHY US
@@ -433,11 +420,9 @@ export default function Index() {
               </div>
               <h3 className="text-base font-bold text-purple mb-1.5">Naik Level Codingmu</h3>
               <p className="text-gray-500 text-sm leading-relaxed flex-1">
-                Kumpulkan XP dan buka level baru saat menyelesaikan tantangan.
+                Tingkatkan skill coding kamu dan buka level baru saat menyelesaikan setiap materi.
               </p>
-              {/* XP pills */}
               <div className="mt-4 flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-orange bg-orange/10 px-2.5 py-1 rounded-full">+30 XP</span>
                 <span className="text-[11px] font-bold text-purple bg-purple/8 px-2.5 py-1 rounded-full">Level Up 🏆</span>
               </div>
             </div>

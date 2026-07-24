@@ -26,7 +26,6 @@ export default function Header() {
   const menuItems = [
     { label: "Beranda", href: "/" },
     { label: "Playground", href: "/playground" },
-    { label: "Komunitas", href: "/komunitas" },
   ];
 
   const isActive = (href: string) =>

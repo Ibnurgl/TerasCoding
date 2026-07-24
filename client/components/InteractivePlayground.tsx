@@ -154,9 +154,10 @@ const FaviconIcon = ({ href, hasTag }: { href: string | null; hasTag: boolean })
 export interface InteractivePlaygroundProps {
   minimal?: boolean;
   defaultCode?: { html?: string; css?: string; js?: string };
+  activeTabs?: TabType[];
 }
 
-const InteractivePlayground = forwardRef<PlaygroundRef, InteractivePlaygroundProps>(({ minimal, defaultCode }, ref) => {
+const InteractivePlayground = forwardRef<PlaygroundRef, InteractivePlaygroundProps>(({ minimal, defaultCode, activeTabs }, ref) => {
   const [activeTab, setActiveTab] = useState<TabType>("html");
   const [htmlCode, setHtmlCode] = useState(defaultCode?.html ?? DEFAULT_HTML);
   const [cssCode, setCssCode] = useState(defaultCode?.css ?? DEFAULT_CSS);
@@ -356,7 +357,7 @@ ${h}
 
           {/* Language tabs */}
           <div className="flex items-end bg-[#16162A] border-b border-white/5 px-2 pt-1.5 gap-0.5">
-            {tabs.map((tab) => (
+            {tabs.filter((tab) => !activeTabs || activeTabs.includes(tab.id)).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -513,7 +514,7 @@ ${h}
 
         {/* Beginner hint */}
         <div className="mt-4 px-5 py-4 bg-purple/10 rounded-xl border-l-4 border-purple-light flex items-start gap-3">
-          <span className="text-purple-light text-base flex-shrink-0 mt-0.5"><img src="/tipsicon.svg" alt="XP" className="inline w-7 h-7 object-contain" /></span>
+          <span className="text-purple-light text-base flex-shrink-0 mt-0.5"><img src="/tipsicon.svg" alt="tips" className="inline w-7 h-7 object-contain" /></span>
           <p className="text-sm text-white/60 leading-relaxed">
             <strong className="text-purple-light">Cara pakai:</strong> Pilih tab{" "}
             <span className="font-mono text-red-400 bg-white/5 px-1.5 py-0.5 rounded text-xs">HTML</span>,{" "}

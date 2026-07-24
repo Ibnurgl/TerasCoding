@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronRight,
+  ChevronDown,
   BookOpen,
   Zap,
   Copy,
@@ -11,13 +12,16 @@ import {
   Lightbulb,
   AlertTriangle,
   Info,
-  Trophy,
-  Target,
   Lock,
   Menu,
   X,
   ExternalLink,
   Loader2,
+  Rocket,
+  Target,
+  CheckSquare,
+  Play,
+  Image,
 } from "lucide-react";
 import { toast } from "sonner";
 import { courses } from "@/lib/courseData";
@@ -55,10 +59,20 @@ export default function LessonPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSavingProgress, setIsSavingProgress] = useState(false);
+  const [showClue, setShowClue] = useState(false);
+  const [showExample, setShowExample] = useState(false);
   const sectionIdx = Number(sIdxParam);
   const lessonIdx = Number(lIdxParam);
-
-  const course = courses.find((c) => c.id === courseId);
+  const normalizedCourseId = courseId?.toLowerCase() ?? "";
+  const course = courses.find(
+    (c) =>
+      c.id === courseId ||
+      (normalizedCourseId === "js-level-3" && c.id === "javascript-level-3") ||
+      (normalizedCourseId === "js" && c.id === "javascript-level-3") ||
+      (normalizedCourseId === "javascript" && c.id === "javascript-level-3") ||
+      (normalizedCourseId === "css" && c.id === "css-level-2") ||
+      (normalizedCourseId === "html" && c.id === "html-level-1")
+  );
   const section = course?.curriculum[sectionIdx];
   const lesson = section?.lessons[lessonIdx];
   const content = lesson?.content;
@@ -93,6 +107,21 @@ export default function LessonPage() {
   // menyelesaikan materi ini berarti seluruh level selesai.
   const isLastContentLesson =
     currentContentIdx !== -1 && currentContentIdx === contentLessons.length - 1;
+
+  const [projectChecklist, setProjectChecklist] = useState<Record<number, boolean>>({});
+
+  const toggleChecklist = (idx: number) => {
+    setProjectChecklist((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const isMiniProject = useMemo(() => {
+    if (!section || !lesson) return false;
+    return (
+      section.title.toLowerCase().includes("mini project") ||
+      lesson.name.toLowerCase().includes("mini project") ||
+      isLastContentLesson
+    );
+  }, [section, lesson, isLastContentLesson]);
   // Course berikutnya di roadmap (dipakai buat animasi unlock di halaman Roadmap)
   const sortedCourses = useMemo(
     () => [...courses].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
@@ -292,9 +321,35 @@ export default function LessonPage() {
 
     // Redirect ke Roadmap (halaman utama) sambil bawa info level mana yang
     // baru saja diselesaikan — RoadmapSection yang menentukan sendiri level
-    // berikutnya + XP-nya dari courseData (single source of truth), lalu
+    // berikutnya dari courseData (single source of truth), lalu
     // memutar animasi scroll + unlock + popup selamat.
     navigate("/", { state: { celebrateCourseId: course.id } });
+  };
+
+  // ─── Finish Mini Project handler ───────────────────────────────────────────
+  const handleFinishMiniProject = async () => {
+    if (isSavingProgress || !course) return;
+
+    if (user && courseId) {
+      setIsSavingProgress(true);
+      const lessonId = getLessonId(courseId, sectionIdx, lessonIdx);
+      try {
+        await Promise.race([
+          saveProgress(user.uid, lessonId, true),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("saveProgress timeout")), 8000),
+          ),
+        ]);
+      } catch (err) {
+        console.error("Gagal menyimpan progress belajar:", err);
+      } finally {
+        setIsSavingProgress(false);
+      }
+      setCompletedMap((prev) => ({ ...prev, [lessonId]: true }));
+    }
+
+    // Direct user to Final Quiz page for this course level
+    navigate(`/kursus/${courseId}/quiz`);
   };
 
   // ─── Copy handler ───────────────────────────────────────────────────────────
@@ -373,13 +428,8 @@ export default function LessonPage() {
             </span>
           </div>
 
-          {/* Right: Gamified info (Trophy & Level badge) */}
+          {/* Right: Level badge */}
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-400/25 text-yellow-600 text-xs font-extrabold px-2.5 py-1 rounded-full">
-              <Trophy size={12} className="text-yellow-500" />
-              <span className="hidden sm:inline">XP: </span>
-              {Math.round(course.xp)}
-            </span>
             <span className="hidden sm:inline-block bg-purple/10 text-purple text-xs font-bold px-2.5 py-1 rounded-full">
               Level {course.order}
             </span>
@@ -407,10 +457,214 @@ export default function LessonPage() {
             </div>
           </div>
 
-          {content ? (
+          {isMiniProject ? (
+            <div className="space-y-8 animate-fade-in">
+              {/* 1. Achievement Hero Banner */}
+              <div className="relative rounded-3xl p-6 md:p-8 overflow-hidden bg-gradient-to-br from-[#0F0C1E] via-[#1A1533] to-[#120E29] border border-purple/20 shadow-2xl text-white">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-orange/10 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="relative z-10 space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange/15 border border-orange/30 text-orange text-xs font-bold uppercase tracking-wider">
+                    <Rocket size={14} />
+                    Tahap Praktik Utama Level {course.order}
+                  </div>
+
+                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                    {course.miniProjectDetail?.title || `Mini Project ${course.title}`}
+                  </h1>
+
+                  <p className="text-white/70 text-sm md:text-base leading-relaxed max-w-2xl">
+                    {course.miniProjectDetail?.description ||
+                      "Selamat! Kamu telah menyelesaikan seluruh materi pada level ini. Sekarang saatnya menerapkan seluruh konsep yang telah dipelajari ke dalam satu project sederhana."}
+                  </p>
+
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        document.getElementById("mini-project-workspace")?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-orange to-orange-dark hover:brightness-110 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all duration-300 shadow-orange-glow hover:scale-105"
+                    >
+                      <Play size={16} />
+                      Mulai Mengerjakan
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Grid Info: Materi yang digunakan + Tujuan Project */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Card Materi yang Digunakan */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-4">
+                      <div className="w-9 h-9 rounded-xl bg-purple/10 flex items-center justify-center text-purple">
+                        <BookOpen size={18} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-[#0f1a35] text-base leading-tight">Materi yang Digunakan</h3>
+                        <p className="text-xs text-gray-400">Konsep yang telah dipelajari</p>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2.5">
+                      {(
+                        course.miniProjectDetail?.usedMaterials || [
+                          "Struktur HTML",
+                          "Heading & Paragraph",
+                          "Link",
+                          "Image",
+                          "List",
+                          "Table",
+                          "Form",
+                        ]
+                      ).map((item, idx) => (
+                        <li key={idx} className="flex items-center gap-2.5 text-sm text-gray-700 font-medium">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs flex-shrink-0 font-bold">
+                            ✓
+                          </span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Card Tujuan Project */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="w-9 h-9 rounded-xl bg-orange/10 flex items-center justify-center text-orange">
+                      <Target size={18} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#0f1a35] text-base leading-tight">Tujuan Project</h3>
+                      <p className="text-xs text-gray-400">Target hasil akhir yang ingin dicapai</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-orange/5 border border-orange/15 text-sm text-gray-700 leading-relaxed font-medium flex-1">
+                    {course.miniProjectDetail?.projectGoal ||
+                      "Buat sebuah halaman profil pribadi sederhana yang menerapkan seluruh materi yang telah dipelajari."}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Card Contoh Tampilan (jika previewImage tersedia) */}
+              {course.miniProjectDetail?.previewImage && (
+                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-purple/10 flex items-center justify-center text-purple">
+                      <Image size={18} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#0f1a35] text-base leading-tight">Contoh Tampilan</h3>
+                      <p className="text-xs text-gray-400">Inspirasi hasil akhir website</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl overflow-hidden border border-gray-200 bg-gray-50 p-2 shadow-inner">
+                    <img
+                      src={course.miniProjectDetail.previewImage}
+                      alt="Contoh Tampilan Website"
+                      className="w-full h-auto max-h-96 object-contain rounded-lg mx-auto"
+                    />
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/60 text-amber-900 text-xs leading-relaxed font-medium">
+                    <Info size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Catatan:</strong> Tampilan di atas hanya contoh. Kamu bebas membuat desain yang berbeda selama memenuhi seluruh kriteria project.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Card Kriteria Project (Panduan Mandiri) */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <CheckSquare size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#0f1a35] text-base leading-tight">Kriteria Project</h3>
+                    <p className="text-xs text-gray-400">Panduan mandiri (Centang saat kamu menyelesaikan kriteria)</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {(
+                    course.miniProjectDetail?.criteria || [
+                      "Menggunakan struktur HTML yang benar",
+                      "Memiliki Heading dan Paragraf",
+                      "Memiliki Gambar dan Link",
+                      "Memiliki List dan Form/Tabel",
+                    ]
+                  ).map((criterion, idx) => {
+                    const isChecked = projectChecklist[idx] || false;
+                    return (
+                      <label
+                        key={idx}
+                        onClick={() => toggleChecklist(idx)}
+                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 select-none ${
+                          isChecked
+                            ? "bg-emerald-50/60 border-emerald-300 text-emerald-900 font-semibold"
+                            : "bg-gray-50/50 border-gray-200/80 text-gray-700 hover:bg-gray-100/60"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}}
+                          className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                        />
+                        <span className="text-xs leading-relaxed">{criterion}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Live Code Editor Workspace */}
+              <div id="mini-project-workspace" className="space-y-4 pt-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-orange/15 flex items-center justify-center">
+                      <Zap size={16} className="text-orange" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-[#0f1a35]">💻 Lembar Kerja Mini Project</h3>
+                      <p className="text-xs text-gray-400">Tulis kodemu di bawah ini dan langsung lihat hasilnya pada Live Preview</p>
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/playground"
+                    target="_blank"
+                    className="hidden sm:inline-flex items-center gap-1.5 text-xs text-purple hover:text-purple-dark font-bold transition-colors"
+                  >
+                    🚀 Buka Full Editor
+                    <ExternalLink size={12} />
+                  </Link>
+                </div>
+
+                {/* Mini Playground Component */}
+                <InteractivePlayground
+                  ref={playgroundRef}
+                  minimal
+                  defaultCode={content?.starterCode}
+                  activeTabs={
+                    course.language === "HTML" ? ["html"] :
+                    course.language === "CSS" ? ["html", "css"] :
+                    undefined
+                  }
+                />
+              </div>
+            </div>
+          ) : content ? (
             <div className="space-y-8">
               
-              {/* Lesson Title & Level/XP Badges inside content area */}
+              {/* Lesson Title & Level Badge inside content area */}
               <div className="mb-6">
                 <h1 className="text-2xl md:text-3xl font-extrabold text-[#0f1a35] tracking-tight mb-3">
                   {lesson.name}
@@ -424,10 +678,6 @@ export default function LessonPage() {
                       : "bg-red-500/10 border-red-400/20 text-red-600"
                   }`}>
                     {course.level}
-                  </span>
-                  <span className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-400/20 text-yellow-600 text-xs font-bold px-2.5 py-1 rounded-full">
-                    <Trophy size={12} className="text-yellow-500" />
-                    +{Math.round(course.xp / totalLessons)} XP
                   </span>
                 </div>
               </div>
@@ -499,88 +749,53 @@ export default function LessonPage() {
                 )}
               </div>
 
-              {/* 4. Contoh Kode */}
-              <div className="space-y-3">
-                <h3 className="text-md font-bold text-[#0f1a35] flex items-center gap-2">
-                  <Zap size={16} className="text-orange" />
-                  Contoh Kode
-                </h3>
-                <div className="rounded-2xl overflow-hidden border border-gray-200/60 shadow-sm bg-gray-950">
-                  {/* Code header */}
-                  <div className="flex items-center justify-between px-4 py-2 bg-[#16162A] border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-400" />
-                      <span className="text-white/40 text-xs font-mono">index.html</span>
-                    </div>
+              {/* 4. Contoh Kode — collapsible */}
+              <div className="rounded-xl border border-gray-100 overflow-hidden">
+                <button
+                  onClick={() => setShowExample((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap size={14} className="text-orange" />
+                    <span className="text-sm font-bold text-[#0f1a35]">Contoh Kode</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-400 font-mono">index.html</span>
+                    <ChevronDown
+                      size={14}
+                      className={`text-gray-400 transition-transform duration-200 ${showExample ? "rotate-180" : ""}`}
+                    />
+                  </div>
+                </button>
+
+                {showExample && (
+                  <div className="relative bg-gray-950">
                     <button
                       onClick={() => handleCopyCode(content.exampleCode.html)}
-                      className="flex items-center gap-1.5 text-white/30 hover:text-white/70 text-xs transition-colors px-2 py-1.5 rounded hover:bg-white/5"
+                      className="absolute top-2 right-3 flex items-center gap-1 text-white/30 hover:text-white/60 text-[11px] transition-colors px-2 py-1 rounded hover:bg-white/5"
                     >
-                      <Copy size={12} />
+                      <Copy size={11} />
                       Copy
                     </button>
+                    <pre className="text-green-300 px-5 pt-4 pb-5 overflow-x-auto text-xs font-mono leading-6 max-h-48 code-scroll">
+                      {content.exampleCode.html}
+                    </pre>
                   </div>
-                  {/* Code content */}
-                  <pre className="text-green-300 px-5 py-4 overflow-x-auto text-xs font-mono leading-6 max-h-52 code-scroll">
-                    {content.exampleCode.html}
-                  </pre>
-                </div>
+                )}
               </div>
 
-              {/* 5. Challenge Card (Placed BEFORE playground for clear goals) */}
-              {content.challenge && (
-                <div className="relative rounded-2xl overflow-hidden border-2 border-purple/15 bg-gradient-to-br from-purple/3 to-orange/3">
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange/10 to-transparent rounded-bl-[80px] pointer-events-none" />
-                  
-                  <div className="p-6 relative">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-purple/10 flex items-center justify-center">
-                          <Target size={16} className="text-purple" />
-                        </div>
-                        <h3 className="font-extrabold text-purple text-lg">🎯 Challenge</h3>
-                      </div>
-                      
-                      <span className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-400/25 text-yellow-600 text-xs font-extrabold px-3 py-1 rounded-full">
-                        <Trophy size={11} />
-                        +20 XP
-                      </span>
-                    </div>
 
-                    <p className="text-gray-600 text-sm mb-5 leading-relaxed font-semibold">
-                      {content.challenge.description}
-                    </p>
-
-                    {/* Checklist Targets */}
-                    <div className="space-y-2 mb-6">
-                      {content.challenge.checklist.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2.5 bg-white/40 p-2.5 rounded-xl border border-gray-100">
-                          <div className="w-4 h-4 rounded-full border-2 border-purple/20 flex items-center justify-center flex-shrink-0">
-                            <CheckCircle size={10} className="text-purple/30" />
-                          </div>
-                          <span className="text-xs text-gray-700 font-semibold">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button className="flex items-center gap-2 bg-purple hover:bg-purple/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg hover:shadow-purple/25">
-                      <CheckCircle size={14} />
-                      Cek Jawaban
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 6. Mini Playground (Compact 350px-450px) */}
-              <div className="space-y-3">
+              {/* 5. Praktik Singkat (Mini Playground + Clue) */}
+              <div className="space-y-4">
+                {/* Section Header */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-orange/15 flex items-center justify-center">
-                      <Zap size={13} className="text-orange" />
+                    <div className="w-7 h-7 rounded-lg bg-orange/15 flex items-center justify-center">
+                      <Zap size={14} className="text-orange" />
                     </div>
-                    <h3 className="text-md font-bold text-[#0f1a35]">Praktik Singkat</h3>
+                    <h3 className="text-md font-bold text-[#0f1a35]">💻 Praktik Singkat</h3>
                   </div>
-                  
+
                   {/* Link to full editor */}
                   <Link
                     to="/playground"
@@ -591,11 +806,52 @@ export default function LessonPage() {
                     <ExternalLink size={12} />
                   </Link>
                 </div>
-                
+
+                {/* Intro text + Clue accordion (jika ada challenge) */}
+                <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      Coba terapkan materi yang baru kamu pelajari di editor di bawah ini.
+                      {" "}
+                      <span className="text-gray-400">Latihan ini bersifat opsional — tidak ada jawaban benar atau salah.</span>
+                    </p>
+
+                    {content.challenge && content.challenge.checklist.length > 0 && (
+                      <button
+                        onClick={() => setShowClue((v) => !v)}
+                        className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold text-orange hover:text-orange/80 bg-orange/10 hover:bg-orange/15 px-3 py-1.5 rounded-lg transition-all"
+                      >
+                        Petunjuk
+                        <ChevronDown
+                          size={13}
+                          className={`transition-transform duration-200 ${showClue ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                    )}
+                  </div>
+
+                  {content.challenge && content.challenge.checklist.length > 0 && showClue && (
+                    <ul className="space-y-1.5 border-t border-gray-200/70 pt-3">
+                      {content.challenge.checklist.map((clue, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange flex-shrink-0" />
+                          {clue}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Mini Playground */}
                 <InteractivePlayground
                   ref={playgroundRef}
                   minimal
                   defaultCode={content.starterCode}
+                  activeTabs={
+                    course.language === "HTML" ? ["html"] :
+                    course.language === "CSS" ? ["html", "css"] :
+                    undefined
+                  }
                 />
               </div>
 
@@ -638,7 +894,26 @@ export default function LessonPage() {
                 {currentFlatIdx + 1} / {totalLessons}
               </span>
 
-              {isLastContentLesson ? (
+              {isMiniProject ? (
+                <button
+                  type="button"
+                  onClick={handleFinishMiniProject}
+                  disabled={isSavingProgress}
+                  className="inline-flex items-center gap-1.5 text-white bg-gradient-to-r from-orange to-orange-dark hover:brightness-110 text-sm font-bold transition-all px-5 py-2.5 rounded-lg shadow-orange-glow hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {isSavingProgress ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      Lanjut ke Final Quiz
+                      <ArrowRight size={15} />
+                    </>
+                  )}
+                </button>
+              ) : isLastContentLesson ? (
                 <button
                   type="button"
                   onClick={handleFinishLevel}

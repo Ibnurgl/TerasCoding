@@ -1,7 +1,7 @@
 /**
  * RoadmapSection.tsx
  * ──────────────────────────────────────────────────────────────────────────────
- * Single source of truth: ALL content (title, xp, lessons, duration, topics,
+ * Single source of truth: ALL content (title, lessons, duration, topics,
  * level number, lock status) is read dynamically from courseData.ts.
  * NOTHING is hardcoded here except UI chrome / visual language-theme mappings
  * (which are presentation metadata, not course content).
@@ -29,9 +29,6 @@ interface LangTheme {
   badgeBg: string;
   badgeText: string;
   badgeBorder: string;
-  xpText: string;
-  xpBg: string;
-  xpBorder: string;
   chipText: string;
   chipBg: string;
   chipBorder: string;
@@ -49,9 +46,6 @@ const LANG_THEME: Record<string, LangTheme> = {
     badgeBg: "rgba(200,57,26,0.15)",
     badgeText: "#FCA882",
     badgeBorder: "rgba(232,71,26,0.28)",
-    xpText: "#FFB347",
-    xpBg: "rgba(255,138,31,0.12)",
-    xpBorder: "rgba(255,138,31,0.28)",
     chipText: "rgba(255,185,110,0.88)",
     chipBg: "rgba(255,138,31,0.09)",
     chipBorder: "rgba(255,138,31,0.20)",
@@ -67,9 +61,6 @@ const LANG_THEME: Record<string, LangTheme> = {
     badgeBg: "rgba(41,101,241,0.15)",
     badgeText: "#93C5FD",
     badgeBorder: "rgba(59,130,246,0.28)",
-    xpText: "#93C5FD",
-    xpBg: "rgba(96,165,250,0.11)",
-    xpBorder: "rgba(96,165,250,0.25)",
     chipText: "rgba(147,197,253,0.88)",
     chipBg: "rgba(96,165,250,0.09)",
     chipBorder: "rgba(96,165,250,0.20)",
@@ -85,9 +76,6 @@ const LANG_THEME: Record<string, LangTheme> = {
     badgeBg: "rgba(247,223,30,0.12)",
     badgeText: "#FDE68A",
     badgeBorder: "rgba(251,191,36,0.24)",
-    xpText: "#FDE68A",
-    xpBg: "rgba(251,191,36,0.10)",
-    xpBorder: "rgba(251,191,36,0.22)",
     chipText: "rgba(253,230,138,0.88)",
     chipBg: "rgba(251,191,36,0.08)",
     chipBorder: "rgba(251,191,36,0.18)",
@@ -113,8 +101,6 @@ export default function RoadmapSection() {
   // Single source of truth: read + sort courses from courseData
   const roadmap = [...courses].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  // Total XP is always computed from courseData — never hardcoded
-  const totalXP = roadmap.reduce((sum, c) => sum + c.xp, 0);
   const totalLessons = roadmap.reduce((sum, c) => sum + (c.lessons ?? 0), 0);
 
   // ── Level-unlock celebration (dipicu dari LessonPage saat Mini Project selesai) ──
@@ -230,9 +216,7 @@ export default function RoadmapSection() {
             {/* body */}
             <div style={{position:"relative",zIndex:1,padding:"16px 18px"}}>
               <p style={{ color:"rgba(160,230,255,0.92)",fontSize:13,lineHeight:1.7,marginBottom:0,textShadow:"0 0 8px rgba(0,200,255,0.4)" }}>
-                Kamu telah menyelesaikan semua level! 🎉 Raih{" "}
-                <span style={{color:"rgba(0,220,255,1)",fontWeight:700}}>+{completed.xp} XP</span>
-                {" "}dan jadi Frontend Developer sejati!
+                Kamu telah menyelesaikan semua level! 🎉 Jadilah Frontend Developer sejati!
               </p>
             </div>
           </div>
@@ -335,17 +319,6 @@ export default function RoadmapSection() {
                 {" "}Level <span style={{color:"rgba(0,220,255,1)",fontWeight:700}}>{unlocked.language}</span>
                 {" "}berhasil dibuka! 🎉
               </p>
-
-              {/* XP badge */}
-              <div style={{
-                display:"inline-flex",alignItems:"center",gap:6,
-                padding:"4px 12px",marginBottom:14,
-                border:"1px solid rgba(0,200,255,0.4)",
-                background:"rgba(0,180,255,0.1)",
-                color:"rgba(0,220,255,0.95)",
-                fontSize:12,fontWeight:700,letterSpacing:"0.08em",
-                textShadow:"0 0 8px rgba(0,200,255,0.7)",
-              }}>🏆 +{completed.xp} XP DIPEROLEH</div>
 
               {/* CTA button */}
               <Link
@@ -532,7 +505,6 @@ export default function RoadmapSection() {
           {/* ── Final reward section ── */}
           <RewardSection
             courses={roadmap}
-            totalXP={totalXP}
             totalLessons={totalLessons}
           />
         </div>
@@ -570,7 +542,7 @@ function SectionHeader() {
 
       <p className="text-white/42 text-base max-w-lg mx-auto leading-relaxed">
         Setiap level saling terhubung. Selesaikan satu untuk membuka yang
-        berikutnya — kumpulkan XP dan jadilah Frontend Developer!
+        berikutnya dan jadilah Frontend Developer!
       </p>
     </div>
   );
@@ -732,8 +704,7 @@ function ConnectorPill({ course, isLocked, isCelebrating }: ConnectorPillProps) 
           </>
         ) : (
           <>
-            <img src="/expicon.svg" alt="XP" className="inline w-4 h-4 mr-1 object-contain" /> Selesaikan Level {course.order}  &nbsp;→ dapatkan{""}
-            <strong>+{course.xp}&nbsp;XP</strong>dan buka Level {nextLevel}
+            Selesaikan Level {course.order} → buka Level {nextLevel}
           </>
         )}
       </div>
@@ -757,7 +728,7 @@ function ConnectorPill({ course, isLocked, isCelebrating }: ConnectorPillProps) 
         {isLocked ? (
           <><Lock size={9} /> Terkunci</>
         ) : (
-          <><img src="/expicon.svg" alt="XP" className="inline w-3 h-3 mr-1 object-contain" />{course.xp} XP → Level {nextLevel}</>
+          <>Selesaikan Level {course.order} → buka Level {nextLevel}</>
         )}
       </div>
     </div>
@@ -866,7 +837,7 @@ function LevelCard({ course, theme, isLocked, isCelebrating }: LevelCardProps) {
           }`,
         boxShadow: isLocked
           ? "none"
-          : `0 0 0 1px ${theme.xpBorder},
+          : `0 0 0 1px ${theme.badgeBorder},
              0 16px 48px ${theme.glow.replace("0.55", "0.12")},
              inset 0 1px 0 rgba(255,255,255,0.06)`,
         opacity: isLocked ? 0.75 : 1,
@@ -912,7 +883,7 @@ function LevelCard({ course, theme, isLocked, isCelebrating }: LevelCardProps) {
       {/* Card content */}
       <div className="p-6 pt-7 relative">
 
-        {/* ── Row 1: lang badge + XP reward ── */}
+        {/* ── Row 1: lang badge only ── */}
         <div className="flex items-center justify-between mb-4">
           <span
             className="inline-flex items-center gap-1.5 text-[11px] font-bold
@@ -927,20 +898,6 @@ function LevelCard({ course, theme, isLocked, isCelebrating }: LevelCardProps) {
           >
             {isLocked ? <span>🔒</span> : <img src={theme.emoji} alt="" className="w-4 h-4 object-contain inline" />}
             Level {level} · {course.language}
-          </span>
-
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-bold
-                       px-3 py-1.5 rounded-full border"
-            style={{
-              background: isLocked ? "transparent" : theme.xpBg,
-              color: isLocked ? "rgba(255,255,255,0.16)" : theme.xpText,
-              borderColor: isLocked
-                ? "rgba(255,255,255,0.05)"
-                : theme.xpBorder,
-            }}
-          >
-            🏆 +{course.xp} XP
           </span>
         </div>
 
@@ -1152,11 +1109,10 @@ function GhostSide({ course, theme, isLocked, side }: GhostSideProps) {
 
 interface RewardSectionProps {
   courses: Course[];
-  totalXP: number;
   totalLessons: number;
 }
 
-function RewardSection({ courses, totalXP, totalLessons }: RewardSectionProps) {
+function RewardSection({ courses, totalLessons }: RewardSectionProps) {
   return (
     <div className="mt-20 relative">
       {/* Connector from path to reward */}
@@ -1245,7 +1201,6 @@ function RewardSection({ courses, totalXP, totalLessons }: RewardSectionProps) {
             </p>
 
             <h3 className="text-2xl md:text-[28px] font-black text-white mb-1 leading-tight">
-              {totalXP} XP Total +{" "}
               <span
                 className="rm-shimmer bg-clip-text text-transparent"
                 style={{
@@ -1265,7 +1220,7 @@ function RewardSection({ courses, totalXP, totalLessons }: RewardSectionProps) {
               Tunjukkan ke dunia bahwa kamu adalah Frontend Developer!
             </p>
 
-            {/* Per-course XP breakdown — dynamic from courseData */}
+            {/* Language chips row */}
             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
               {courses.map((c) => {
                 const t = getTheme(c.language);
@@ -1275,13 +1230,13 @@ function RewardSection({ courses, totalXP, totalLessons }: RewardSectionProps) {
                     className="inline-flex items-center gap-1.5 text-[11px] font-bold
                                px-3 py-1.5 rounded-full border"
                     style={{
-                      background: t.xpBg,
-                      color: t.xpText,
-                      borderColor: t.xpBorder,
+                      background: t.badgeBg,
+                      color: t.badgeText,
+                      borderColor: t.badgeBorder,
                     }}
                   >
                     <img src={t.emoji} alt="" className="w-4 h-4 object-contain inline" />
-                    {c.language} · +{c.xp} XP
+                    {c.language}
                   </div>
                 );
               })}
@@ -1289,24 +1244,7 @@ function RewardSection({ courses, totalXP, totalLessons }: RewardSectionProps) {
           </div>
 
           {/* ── CTA ── */}
-          <div className="flex-shrink-0 flex flex-col items-center gap-3">
-            <Link
-              to="/learning-path/frontend"
-              className="inline-flex items-center gap-2.5 text-white font-bold
-                         py-4 px-7 rounded-2xl text-sm whitespace-nowrap
-                         transition-all duration-300 hover:scale-105 active:scale-95"
-              style={{
-                background: "linear-gradient(135deg,#FF8A1F,#E07210)",
-                boxShadow:
-                  "0 6px 30px rgba(255,138,31,0.48)," +
-                  "inset 0 1px 0 rgba(255,255,255,0.12)",
-              }}
-            >
-              <Zap size={15} fill="currentColor" strokeWidth={0} />
-              Lihat Detail Jalur
-              <ArrowRight size={15} />
-            </Link>
-
+          <div className="flex-shrink-0 flex flex-col items-center justify-center gap-3">
             {/* Dynamic meta from courseData */}
             <p
               className="text-[11px] text-center"

@@ -16,12 +16,6 @@ export default function Placeholder() {
         "Uji kemampuanmu dengan berbagai tantangan programming yang menarik dan menantang!",
       emoji: "🚀",
     },
-    komunitas: {
-      title: "Komunitas",
-      description:
-        "Bergabunglah dengan ribuan developer dan berbagi pengetahuan bersama-sama.",
-      emoji: "👥",
-    },
   };
 
   const page = pageDescriptions[pathSegments[0]] || {

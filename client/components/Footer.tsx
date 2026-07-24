@@ -22,7 +22,6 @@ function DiscordIcon(props: React.SVGProps<SVGSVGElement>) {
 const navigationLinks = [
   { label: "Beranda", href: "/" },
   { label: "Playground", href: "/playground" },
-  { label: "Komunitas", href: "/komunitas" },
 ];
 
 const belajarLinks = [
